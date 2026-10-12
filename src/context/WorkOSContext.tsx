@@ -586,7 +586,7 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
   const updateTaskStatus = async (id: string, newStatus: TaskStatus) => {
     const nowIso = new Date().toISOString();
     const isDone = newStatus === 'Done';
-    let target = tasks.find((t) => t.id === id);
+    const target = tasks.find((t) => t.id === id);
 
     setTasks((prev) =>
       prev.map((t) => {
