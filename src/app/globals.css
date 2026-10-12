@@ -37,6 +37,22 @@ body {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
+/* Ensure hand icon (cursor: pointer) on hover for all buttons and interactive elements */
+button,
+[role="button"],
+input[type="button"],
+input[type="submit"],
+input[type="reset"],
+select,
+summary {
+  cursor: pointer;
+}
+
+button:disabled,
+[role="button"][aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
 /* Custom scrollbars */
 ::-webkit-scrollbar {
   width: 6px;

@@ -5,6 +5,14 @@ export const metadata: Metadata = {
   title: "My Work OS — Personal Work Management & Productivity Dashboard",
   description:
     "Personal command centre for a Product & Project Delivery Manager: manage daily work, projects, tasks, follow-ups, meetings, issues, daily logs, and professional achievements.",
+  icons: {
+    icon: [
+      { url: '/logo.svg', type: 'image/svg+xml' },
+      { url: '/icon.svg', type: 'image/svg+xml' },
+    ],
+    shortcut: '/logo.svg',
+    apple: '/logo.svg',
+  },
 };
 
 export default function RootLayout({

@@ -666,8 +666,28 @@ export default function ProjectsView() {
       </div>
 
       {/* Projects Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {projects.map((proj) => {
+      {projects.length === 0 ? (
+        <div className="py-20 text-center bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 p-8">
+          <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center mx-auto mb-3">
+            <FolderKanban className="w-6 h-6" />
+          </div>
+          <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+            No projects yet
+          </h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
+            You are starting from a clean slate. Create your first project to organize tasks, track issues, and manage deliverables.
+          </p>
+          <button
+            onClick={() => setIsCreateOpen(true)}
+            className="mt-4 inline-flex items-center space-x-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-all"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Create Your First Project</span>
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {projects.map((proj) => {
           const stats = getProjectStats(proj.id);
 
           return (
@@ -717,6 +737,7 @@ export default function ProjectsView() {
           );
         })}
       </div>
+      )}
 
       {/* CREATE PROJECT MODAL */}
       {isCreateOpen && (

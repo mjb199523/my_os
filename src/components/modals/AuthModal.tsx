@@ -12,6 +12,8 @@ import {
   RefreshCw,
   LogOut,
   AlertCircle,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 
 export default function AuthModal() {
@@ -35,6 +37,7 @@ export default function AuthModal() {
   // Connect form
   const [supabaseUrl, setSupabaseUrl] = useState('');
   const [supabaseKey, setSupabaseKey] = useState('');
+  const [showKey, setShowKey] = useState(false);
   const [connectMsg, setConnectMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Auth form
@@ -207,14 +210,28 @@ export default function AuthModal() {
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Supabase Anon Public API Key
                   </label>
-                  <input
-                    type="password"
-                    required
-                    value={supabaseKey}
-                    onChange={(e) => setSupabaseKey(e.target.value)}
-                    placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                    className="w-full px-3 py-2 text-xs rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-mono"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showKey ? 'text' : 'password'}
+                      required
+                      value={supabaseKey}
+                      onChange={(e) => setSupabaseKey(e.target.value)}
+                      placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                      className="w-full px-3 py-2 pr-10 text-xs rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowKey((prev) => !prev)}
+                      className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                      title={showKey ? 'Hide key' : 'Show key'}
+                    >
+                      {showKey ? (
+                        <EyeOff className="w-3.5 h-3.5" />
+                      ) : (
+                        <Eye className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between pt-2">

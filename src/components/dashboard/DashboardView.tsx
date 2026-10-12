@@ -53,13 +53,11 @@ export default function DashboardView() {
   const [quickLogWorkedOn, setQuickLogWorkedOn] = useState(todayLog?.worked_on || '');
   const [isLogSaved, setIsLogSaved] = useState(false);
 
-  // Filter tasks for today
-  const todayTasks = tasks.filter(
-    (t) => t.due_date === today || t.status === 'In Progress' || t.status === 'Blocked'
-  );
-  const totalTodayTasks = todayTasks.length;
-  const completedTodayTasks = todayTasks.filter((t) => t.status === 'Done').length;
-  const remainingTodayTasks = totalTodayTasks - completedTodayTasks;
+  // All workspace tasks
+  const allWorkspaceTasks = tasks;
+  const totalTasksCount = allWorkspaceTasks.length;
+  const completedTasksCount = allWorkspaceTasks.filter((t) => t.status === 'Done').length;
+  const remainingTasksCount = totalTasksCount - completedTasksCount;
 
   // High priority tasks
   const highPriorityTasks = tasks.filter(
@@ -154,14 +152,14 @@ export default function DashboardView() {
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
       {/* SECTION 6: SUMMARY CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Tasks */}
+        {/* Card 1: All Tasks */}
         <div
           onClick={() => setActiveTab('tasks')}
           className="group cursor-pointer p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-600 shadow-sm transition-all duration-150"
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Tasks Today
+              All Tasks
             </span>
             <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
               <CheckSquare className="w-4 h-4" />
@@ -169,7 +167,7 @@ export default function DashboardView() {
           </div>
           <div className="flex items-baseline space-x-2">
             <span className="text-2xl font-bold text-slate-900 dark:text-white">
-              {totalTodayTasks}
+              {totalTasksCount}
             </span>
             <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
               Tasks
@@ -177,10 +175,10 @@ export default function DashboardView() {
           </div>
           <div className="mt-2 text-xs flex items-center space-x-2 text-slate-500 dark:text-slate-400">
             <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
-              {completedTodayTasks} completed
+              {completedTasksCount} completed
             </span>
             <span>•</span>
-            <span className="font-medium">{remainingTodayTasks} remaining</span>
+            <span className="font-medium">{remainingTasksCount} remaining</span>
           </div>
         </div>
 
@@ -263,15 +261,15 @@ export default function DashboardView() {
         </div>
       </div>
 
-      {/* SECTION 7 & 26: TODAY'S TASKS (MY DAY) */}
+      {/* SECTION 7 & 26: ALL TASKS */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center space-x-2">
             <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white tracking-tight">
-              TODAY&apos;S TASKS
+              ALL TASKS
             </h2>
             <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-              {todayTasks.length}
+              {allWorkspaceTasks.length}
             </span>
           </div>
           <div className="flex items-center space-x-2">
@@ -294,14 +292,14 @@ export default function DashboardView() {
 
         {/* Task Table */}
         <div className="overflow-x-auto">
-          {todayTasks.length === 0 ? (
+          {allWorkspaceTasks.length === 0 ? (
             <div className="py-12 text-center">
-              <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2 opacity-80" />
+              <CheckCircle2 className="w-8 h-8 text-blue-500 mx-auto mb-2 opacity-80" />
               <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                No tasks for today 🎉
+                No tasks added yet
               </p>
               <p className="text-[11px] text-slate-400 mt-0.5">
-                Take a breather or plan ahead for tomorrow.
+                Click + Add Task to create your first task.
               </p>
             </div>
           ) : (
@@ -317,7 +315,7 @@ export default function DashboardView() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
-                {todayTasks.map((task) => {
+                {allWorkspaceTasks.map((task) => {
                   const project = projects.find((p) => p.id === task.project_id);
                   const isDropdownOpen = openStatusDropdownId === task.id;
 
@@ -576,55 +574,72 @@ export default function DashboardView() {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {projects.slice(0, 3).map((proj) => {
-            const projTasks = tasks.filter((t) => t.project_id === proj.id);
-            const total = projTasks.length;
-            const completed = projTasks.filter((t) => t.status === 'Done').length;
-            const blocked = projTasks.filter((t) => t.status === 'Blocked').length;
-            const pending = total - completed;
-            const progress = total > 0 ? Math.round((completed / total) * 100) : 75;
+        {projects.length === 0 ? (
+          <div className="py-8 text-center bg-slate-50 dark:bg-slate-800/30 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
+            <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+              No projects created yet
+            </p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+              Create your first project to start tracking your work stream.
+            </p>
+            <button
+              onClick={() => setActiveTab('projects')}
+              className="mt-3 px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+            >
+              + Create Project
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {projects.slice(0, 3).map((proj) => {
+              const projTasks = tasks.filter((t) => t.project_id === proj.id);
+              const total = projTasks.length;
+              const completed = projTasks.filter((t) => t.status === 'Done').length;
+              const blocked = projTasks.filter((t) => t.status === 'Blocked').length;
+              const pending = total - completed;
+              const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
 
-            return (
-              <div
-                key={proj.id}
-                onClick={() => {
-                  setSelectedProjectId(proj.id);
-                  setActiveTab('projects');
-                }}
-                className="cursor-pointer p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-600 transition-all"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                    {proj.name}
-                  </h4>
-                  <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
-                    {progress}%
-                  </span>
-                </div>
-
-                <div className="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden mb-3">
-                  <div
-                    className="bg-blue-600 h-full rounded-full transition-all duration-300"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-                  <span>{total} Tasks</span>
-                  <span>{pending} Pending</span>
-                  {blocked > 0 ? (
-                    <span className="text-red-600 dark:text-red-400 font-semibold">
-                      {blocked} Blocked
+              return (
+                <div
+                  key={proj.id}
+                  onClick={() => {
+                    setSelectedProjectId(proj.id);
+                    setActiveTab('projects');
+                  }}
+                  className="cursor-pointer p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-600 transition-all"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                      {proj.name}
+                    </h4>
+                    <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
+                      {progress}%
                     </span>
-                  ) : (
-                    <span>0 Blocked</span>
-                  )}
+                  </div>
+
+                  <div className="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden mb-3">
+                    <div
+                      className="bg-blue-600 h-full rounded-full transition-all duration-300"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                    <span>{total} Tasks</span>
+                    <span>{pending} Pending</span>
+                    {blocked > 0 ? (
+                      <span className="text-red-600 dark:text-red-400 font-semibold">
+                        {blocked} Blocked
+                      </span>
+                    ) : (
+                      <span>0 Blocked</span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* SECTION: TODAY'S MEETINGS & BLOCKERS */}

@@ -18,6 +18,7 @@ import {
   ChevronRight,
   Sparkles,
 } from 'lucide-react';
+import Logo from '@/components/common/Logo';
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -38,9 +39,7 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
 
   const today = new Date().toISOString().split('T')[0];
 
-  const todayTasksCount = tasks.filter(
-    (t) => t.due_date === today && t.status !== 'Done'
-  ).length;
+  const activeTasksCount = tasks.filter((t) => t.status !== 'Done').length;
   const followupsDueCount = followups.filter(
     (f) => f.followup_date <= today && f.status !== 'Completed'
   ).length;
@@ -62,7 +61,7 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
       id: 'tasks',
       label: 'My Tasks',
       icon: CheckSquare,
-      badge: todayTasksCount > 0 ? todayTasksCount : null,
+      badge: activeTasksCount > 0 ? activeTasksCount : null,
       badgeColor: 'bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-300',
     },
     {
@@ -149,14 +148,17 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
     >
       {/* Brand & Logo */}
       <div className="h-16 px-5 flex items-center justify-between border-b border-slate-200 dark:border-slate-800">
-        <div className="flex items-center space-x-2.5">
-          <div className="w-8 h-8 rounded-lg bg-blue-600 dark:bg-blue-500 flex items-center justify-center text-white shadow-sm font-bold text-sm tracking-wide">
-            OS
-          </div>
+        <div className="flex items-center space-x-3 cursor-pointer" onClick={() => handleNavClick('dashboard')}>
+          <Logo size={36} />
           <div>
-            <span className="font-semibold text-slate-900 dark:text-white text-base tracking-tight block">
-              My Work OS
-            </span>
+            <div className="flex items-center space-x-1.5">
+              <span className="font-bold text-slate-900 dark:text-white text-base tracking-tight block">
+                My Work OS
+              </span>
+              <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 tracking-wider">
+                PRO
+              </span>
+            </div>
             <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium block -mt-0.5">
               Personal Command Centre
             </span>
@@ -209,18 +211,13 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
 
       {/* User profile & Command footer */}
       <div className="p-3 border-t border-slate-200 dark:border-slate-800">
-        <div className="flex items-center space-x-3 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800">
-          <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-500 text-white font-semibold text-xs flex items-center justify-center shrink-0 shadow-sm">
-            MB
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">
-              {user.name}
-            </p>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-              Product & Delivery Lead
-            </p>
-          </div>
+        <div className="px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800">
+          <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">
+            {user.name}
+          </p>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+            {user.role || 'Product & Delivery Lead'}
+          </p>
         </div>
       </div>
     </aside>

@@ -11,6 +11,7 @@ import {
   Menu,
   CheckCircle2,
   Calendar,
+  Clock,
   CheckSquare,
   UserCheck,
   Video,
@@ -53,18 +54,34 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Format today's date dynamically (e.g. "Friday, 09 October 2026")
-  const dateObj = new Date();
+  // Format today's date & live dynamic time clock (updating every second)
+  const [currentDate, setCurrentDate] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentDate(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const dateOptions: Intl.DateTimeFormatOptions = {
-    weekday: 'long',
+    weekday: 'short',
     day: '2-digit',
-    month: 'long',
+    month: 'short',
     year: 'numeric',
   };
-  const formattedDate = dateObj.toLocaleDateString('en-GB', dateOptions);
+  const formattedDate = currentDate.toLocaleDateString('en-GB', dateOptions);
+  
+  // Format live 12-hour clock with seconds (e.g., 12:15:30 PM)
+  const formattedTime = currentDate.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true,
+  });
 
   // Dynamic greeting based on time of day
-  const hour = dateObj.getHours();
+  const hour = currentDate.getHours();
   let greetingTime = 'morning';
   if (hour >= 12 && hour < 17) {
     greetingTime = 'afternoon';
@@ -72,7 +89,7 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
     greetingTime = 'evening';
   }
 
-  const firstName = user.name.split(' ')[0] || 'Manash';
+  const firstName = user.name ? user.name.split(' ')[0] : 'User';
 
   return (
     <header className="sticky top-0 z-30 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors">
@@ -93,9 +110,15 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
                 Good {greetingTime}, {firstName} 👋
               </h1>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-              {formattedDate}
-            </p>
+            <div className="flex items-center space-x-2 text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+              <span>{formattedDate}</span>
+              <span className="text-slate-300 dark:text-slate-600">•</span>
+              <div className="inline-flex items-center space-x-1 font-mono font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800/80 px-2 py-0.5 rounded-md border border-slate-200/80 dark:border-slate-700">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <Clock className="w-3 h-3 text-slate-400" />
+                <span>{formattedTime}</span>
+              </div>
+            </div>
           </div>
         </div>
 

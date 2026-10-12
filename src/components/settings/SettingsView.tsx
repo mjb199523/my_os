@@ -8,16 +8,20 @@ import {
   Download,
   Upload,
   RefreshCw,
+  Trash2,
   User,
   ShieldCheck,
   CheckCircle2,
   ExternalLink,
 } from 'lucide-react';
+import Logo from '@/components/common/Logo';
 
 export default function SettingsView() {
   const {
     user,
+    updateUser,
     resetToSeedData,
+    clearAllData,
     exportDataJSON,
     importDataJSON,
     isSupabaseConnected,
@@ -71,17 +75,62 @@ export default function SettingsView() {
 
       {/* User Profile Card */}
       <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-        <div className="flex items-center space-x-3">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-bold text-base flex items-center justify-center shadow-sm">
-            MB
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center space-x-3">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-bold text-base flex items-center justify-center shadow-sm uppercase">
+              {user.name ? user.name.slice(0, 2) : 'ME'}
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                {user.name}
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {user.role} • {user.email}
+              </p>
+            </div>
+          </div>
+          <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300">
+            Workspace Owner
+          </span>
+        </div>
+
+        {/* Editable Profile Inputs */}
+        <div className="pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+              Your Name
+            </label>
+            <input
+              type="text"
+              value={user.name}
+              onChange={(e) => updateUser({ name: e.target.value })}
+              className="w-full px-3 py-1.5 text-xs rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-medium"
+              placeholder="e.g. Manashjyoti Barman"
+            />
           </div>
           <div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-white">
-              {user.name}
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              {user.role} • {user.email}
-            </p>
+            <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+              Designation / Role
+            </label>
+            <input
+              type="text"
+              value={user.role || ''}
+              onChange={(e) => updateUser({ role: e.target.value })}
+              className="w-full px-3 py-1.5 text-xs rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-medium"
+              placeholder="e.g. Product Delivery Lead"
+            />
+          </div>
+          <div>
+            <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+              Email Address
+            </label>
+            <input
+              type="email"
+              value={user.email}
+              onChange={(e) => updateUser({ email: e.target.value })}
+              className="w-full px-3 py-1.5 text-xs rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-medium"
+              placeholder="e.g. manash@company.com"
+            />
           </div>
         </div>
       </div>
@@ -121,12 +170,12 @@ export default function SettingsView() {
         )}
 
         <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-          The application operates seamlessly with persistent LocalStorage out of the box. To deploy to Supabase on Vercel, run the SQL schema in <code className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-blue-600">supabase/schema.sql</code> and set:
+          The application operates with persistent storage and cloud synchronization. Environment variables in <code className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-blue-600">.env.local</code>:
         </p>
 
         <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700 font-mono text-[11px] text-slate-800 dark:text-slate-200 space-y-1">
-          <div>NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co</div>
-          <div>NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-public-key</div>
+          <div>NEXT_PUBLIC_SUPABASE_URL=https://••••••••••••.supabase.co</div>
+          <div>NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.••••••••••••</div>
         </div>
       </div>
 
@@ -166,19 +215,54 @@ export default function SettingsView() {
             onClick={() => {
               if (
                 confirm(
-                  'Reset workspace back to original seed data (Assam IDP, SBA Bot, Live Report Bot)?'
+                  'Are you sure you want to clear all data and start from scratch with 0 items?'
+                )
+              ) {
+                clearAllData();
+                alert('Workspace cleared! You are now starting completely from 0.');
+              }
+            }}
+            className="inline-flex items-center space-x-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-rose-600 hover:bg-rose-700 text-white transition-colors shadow-2xs"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Clear All Data (Start from 0)</span>
+          </button>
+
+          <button
+            onClick={() => {
+              if (
+                confirm(
+                  'Reset workspace back to original template seed data?'
                 )
               ) {
                 resetToSeedData();
                 alert('Workspace reset to initial seed state.');
               }
             }}
-            className="inline-flex items-center space-x-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-red-50 hover:bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 transition-colors"
+            className="inline-flex items-center space-x-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors"
           >
             <RefreshCw className="w-3.5 h-3.5" />
-            <span>Reset Demo Seed Data</span>
+            <span>Load Demo Template</span>
           </button>
         </div>
+      </div>
+
+      {/* About & Brand Card */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <Logo size={44} />
+          <div>
+            <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+              My Work OS
+            </h4>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Personal Command Centre &bull; Version 2.0.0
+            </p>
+          </div>
+        </div>
+        <span className="text-xs font-medium text-slate-400">
+          Designed for high-output delivery managers
+        </span>
       </div>
     </div>
   );

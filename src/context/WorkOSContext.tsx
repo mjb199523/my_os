@@ -140,6 +140,9 @@ interface WorkOSContextType {
   updateNote: (id: string, updates: Partial<Note>) => Promise<void>;
   deleteNote: (id: string) => Promise<void>;
 
+  // User profile actions
+  updateUser: (updates: Partial<User>) => Promise<void>;
+
   // Notification actions
   markNotificationRead: (id: string) => void;
   clearAllNotifications: () => void;
@@ -156,6 +159,7 @@ interface WorkOSContextType {
   signOutUser: () => Promise<void>;
 
   // System & Backup
+  clearAllData: () => void;
   resetToSeedData: () => void;
   exportDataJSON: () => string;
   importDataJSON: (jsonStr: string) => boolean;
@@ -184,18 +188,18 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const [isSupabaseConnected, setIsSupabaseConnected] = useState(false);
 
-  // Data state
+  // Data state (clean slate starting from 0)
   const [user, setUser] = useState<User>(CURRENT_USER);
-  const [projects, setProjects] = useState<Project[]>(INITIAL_PROJECTS);
-  const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
-  const [taskUpdates, setTaskUpdates] = useState<TaskUpdate[]>(INITIAL_TASK_UPDATES);
-  const [followups, setFollowups] = useState<Followup[]>(INITIAL_FOLLOWUPS);
-  const [meetings, setMeetings] = useState<Meeting[]>(INITIAL_MEETINGS);
-  const [issues, setIssues] = useState<Issue[]>(INITIAL_ISSUES);
-  const [dailyLogs, setDailyLogs] = useState<DailyLog[]>(INITIAL_DAILY_LOGS);
-  const [achievements, setAchievements] = useState<Achievement[]>(INITIAL_ACHIEVEMENTS);
-  const [notes, setNotes] = useState<Note[]>(INITIAL_NOTES);
-  const [milestones, setMilestones] = useState<Milestone[]>(INITIAL_MILESTONES);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [taskUpdates, setTaskUpdates] = useState<TaskUpdate[]>([]);
+  const [followups, setFollowups] = useState<Followup[]>([]);
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [issues, setIssues] = useState<Issue[]>([]);
+  const [dailyLogs, setDailyLogs] = useState<DailyLog[]>([]);
+  const [achievements, setAchievements] = useState<Achievement[]>([]);
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
 
   // 1. Initial Load & Setup
@@ -210,21 +214,22 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
       const client = getSupabase();
       if (client) {
         setIsSupabaseConnected(true);
+        syncWithSupabase();
       }
 
       const savedData = localStorage.getItem(STORAGE_KEY);
       if (savedData) {
         const parsed = JSON.parse(savedData);
-        if (parsed.projects?.length) setProjects(parsed.projects);
-        if (parsed.tasks?.length) setTasks(parsed.tasks);
-        if (parsed.taskUpdates?.length) setTaskUpdates(parsed.taskUpdates);
-        if (parsed.followups?.length) setFollowups(parsed.followups);
-        if (parsed.meetings?.length) setMeetings(parsed.meetings);
-        if (parsed.issues?.length) setIssues(parsed.issues);
-        if (parsed.dailyLogs?.length) setDailyLogs(parsed.dailyLogs);
-        if (parsed.achievements?.length) setAchievements(parsed.achievements);
-        if (parsed.notes?.length) setNotes(parsed.notes);
-        if (parsed.milestones?.length) setMilestones(parsed.milestones);
+        if (Array.isArray(parsed.projects)) setProjects(parsed.projects);
+        if (Array.isArray(parsed.tasks)) setTasks(parsed.tasks);
+        if (Array.isArray(parsed.taskUpdates)) setTaskUpdates(parsed.taskUpdates);
+        if (Array.isArray(parsed.followups)) setFollowups(parsed.followups);
+        if (Array.isArray(parsed.meetings)) setMeetings(parsed.meetings);
+        if (Array.isArray(parsed.issues)) setIssues(parsed.issues);
+        if (Array.isArray(parsed.dailyLogs)) setDailyLogs(parsed.dailyLogs);
+        if (Array.isArray(parsed.achievements)) setAchievements(parsed.achievements);
+        if (Array.isArray(parsed.notes)) setNotes(parsed.notes);
+        if (Array.isArray(parsed.milestones)) setMilestones(parsed.milestones);
         if (parsed.user) setUser(parsed.user);
       }
     } catch (e) {
@@ -361,56 +366,56 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
     try {
       // 1. Fetch remote projects
       const { data: remoteProjects, error: prjErr } = await client.from('projects').select('*');
-      if (!prjErr && remoteProjects?.length) {
-        setProjects(remoteProjects);
+      if (!prjErr) {
+        setProjects(remoteProjects || []);
       }
 
       // 2. Fetch remote tasks
       const { data: remoteTasks, error: tskErr } = await client.from('tasks').select('*');
-      if (!tskErr && remoteTasks?.length) {
-        setTasks(remoteTasks);
+      if (!tskErr) {
+        setTasks(remoteTasks || []);
       }
 
       // 3. Fetch remote followups
       const { data: remoteFollowups, error: folErr } = await client.from('followups').select('*');
-      if (!folErr && remoteFollowups?.length) {
-        setFollowups(remoteFollowups);
+      if (!folErr) {
+        setFollowups(remoteFollowups || []);
       }
 
       // 4. Fetch remote meetings
       const { data: remoteMeetings, error: mtgErr } = await client.from('meetings').select('*');
-      if (!mtgErr && remoteMeetings?.length) {
-        setMeetings(remoteMeetings);
+      if (!mtgErr) {
+        setMeetings(remoteMeetings || []);
       }
 
       // 5. Fetch remote issues
       const { data: remoteIssues, error: issErr } = await client.from('issues').select('*');
-      if (!issErr && remoteIssues?.length) {
-        setIssues(remoteIssues);
+      if (!issErr) {
+        setIssues(remoteIssues || []);
       }
 
       // 6. Fetch remote daily logs
       const { data: remoteLogs, error: logErr } = await client.from('daily_logs').select('*');
-      if (!logErr && remoteLogs?.length) {
-        setDailyLogs(remoteLogs);
+      if (!logErr) {
+        setDailyLogs(remoteLogs || []);
       }
 
       // 7. Fetch remote achievements
       const { data: remoteAch, error: achErr } = await client.from('achievements').select('*');
-      if (!achErr && remoteAch?.length) {
-        setAchievements(remoteAch);
+      if (!achErr) {
+        setAchievements(remoteAch || []);
       }
 
       // 8. Fetch remote milestones
       const { data: remoteMls, error: mlsErr } = await client.from('milestones').select('*');
-      if (!mlsErr && remoteMls?.length) {
-        setMilestones(remoteMls);
+      if (!mlsErr) {
+        setMilestones(remoteMls || []);
       }
 
       // 9. Fetch remote notes
       const { data: remoteNotes, error: notErr } = await client.from('notes').select('*');
-      if (!notErr && remoteNotes?.length) {
-        setNotes(remoteNotes);
+      if (!notErr) {
+        setNotes(remoteNotes || []);
       }
 
       setLastSyncedAt(new Date().toLocaleTimeString());
@@ -1277,6 +1282,19 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
     return notifications.filter((n) => !dismissedNotifications.includes(n.id));
   }, [notifications, dismissedNotifications]);
 
+  // USER PROFILE ACTIONS
+  const updateUser = async (updates: Partial<User>) => {
+    setUser((prev) => ({ ...prev, ...updates }));
+    const client = getSupabase();
+    if (client && user.id) {
+      try {
+        await client.from('users').upsert({ id: user.id, ...updates });
+      } catch (e) {
+        console.error('Failed to update user in Supabase:', e);
+      }
+    }
+  };
+
   const markNotificationRead = (id: string) => {
     setDismissedNotifications((prev) => [...prev, id]);
   };
@@ -1286,6 +1304,20 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
   };
 
   // SYSTEM DATA METHODS
+  const clearAllData = () => {
+    localStorage.removeItem(STORAGE_KEY);
+    setProjects([]);
+    setTasks([]);
+    setTaskUpdates([]);
+    setFollowups([]);
+    setMeetings([]);
+    setIssues([]);
+    setDailyLogs([]);
+    setAchievements([]);
+    setMilestones([]);
+    setNotes([]);
+  };
+
   const resetToSeedData = () => {
     localStorage.removeItem(STORAGE_KEY);
     setUser(CURRENT_USER);
@@ -1410,8 +1442,10 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
         addNote,
         updateNote,
         deleteNote,
+        updateUser,
         markNotificationRead,
         clearAllNotifications,
+        clearAllData,
         resetToSeedData,
         exportDataJSON,
         importDataJSON,

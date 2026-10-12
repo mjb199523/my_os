@@ -122,6 +122,9 @@ export interface Meeting {
     assigned_to?: string;
     converted_to_task_id?: string;
   }[];
+  source?: 'local' | 'google_calendar';
+  meeting_link?: string;
+  external_id?: string;
   created_at: string;
   updated_at: string;
 }
