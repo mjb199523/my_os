@@ -117,7 +117,7 @@ export default function SettingsView() {
               value={user.role || ''}
               onChange={(e) => updateUser({ role: e.target.value })}
               className="w-full px-3 py-1.5 text-xs rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-medium"
-              placeholder="e.g. Product Delivery Lead"
+              placeholder="e.g. Product Delivery Manager"
             />
           </div>
           <div>

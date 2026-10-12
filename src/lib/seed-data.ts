@@ -17,7 +17,7 @@ export const CURRENT_USER: User = {
   name: 'Manashjyoti Barman',
   email: 'manashjyoti.barman07@gmail.com',
   avatar_url: '',
-  role: 'Product / Project Delivery Manager',
+  role: 'Product Delivery Manager',
   created_at: '2026-01-01T00:00:00Z',
 };
 

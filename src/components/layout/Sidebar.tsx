@@ -219,7 +219,7 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
               {user.name}
             </p>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
-              {user.role || 'Product & Delivery Lead'}
+              {user.role || 'Product Delivery Manager'}
             </p>
           </div>
           <button

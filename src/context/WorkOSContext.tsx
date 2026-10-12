@@ -293,27 +293,29 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
     // Check existing session
     client.auth.getUser().then(({ data }) => {
       if (data?.user) {
-        setUser({
+        setUser((prev) => ({
+          ...prev,
           id: data.user.id,
-          name: data.user.user_metadata?.full_name || data.user.email?.split('@')[0] || 'User',
-          email: data.user.email || '',
-          avatar_url: data.user.user_metadata?.avatar_url || '',
-          role: data.user.user_metadata?.role || 'Product & Delivery Manager',
+          name: data.user.user_metadata?.full_name || prev.name || data.user.email?.split('@')[0] || 'User',
+          email: data.user.email || prev.email,
+          avatar_url: data.user.user_metadata?.avatar_url || prev.avatar_url || '',
+          role: data.user.user_metadata?.role || prev.role || 'Product Delivery Manager',
           created_at: data.user.created_at,
-        });
+        }));
       }
     });
 
     const { data: authListener } = client.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
-        setUser({
+        setUser((prev) => ({
+          ...prev,
           id: session.user.id,
-          name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
-          email: session.user.email || '',
-          avatar_url: session.user.user_metadata?.avatar_url || '',
-          role: session.user.user_metadata?.role || 'Product & Delivery Manager',
+          name: session.user.user_metadata?.full_name || prev.name || session.user.email?.split('@')[0] || 'User',
+          email: session.user.email || prev.email,
+          avatar_url: session.user.user_metadata?.avatar_url || prev.avatar_url || '',
+          role: session.user.user_metadata?.role || prev.role || 'Product Delivery Manager',
           created_at: session.user.created_at,
-        });
+        }));
       }
     });
 
@@ -1305,7 +1307,21 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
 
   // USER PROFILE ACTIONS
   const updateUser = async (updates: Partial<User>) => {
-    setUser((prev) => ({ ...prev, ...updates }));
+    setUser((prev) => {
+      const updatedUser = { ...prev, ...updates };
+      try {
+        const existingData = localStorage.getItem(STORAGE_KEY);
+        if (existingData) {
+          const parsed = JSON.parse(existingData);
+          parsed.user = updatedUser;
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+        }
+      } catch (err) {
+        console.error('Failed to immediately save user profile:', err);
+      }
+      return updatedUser;
+    });
+
     const client = getSupabase();
     if (client && user.id) {
       try {
