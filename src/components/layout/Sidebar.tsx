@@ -17,6 +17,7 @@ import {
   Settings,
   ChevronRight,
   Sparkles,
+  LogOut,
 } from 'lucide-react';
 import Logo from '@/components/common/Logo';
 
@@ -35,6 +36,7 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
     meetings,
     issues,
     user,
+    signOutUser,
   } = useWorkOS();
 
   const today = new Date().toISOString().split('T')[0];
@@ -211,13 +213,26 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
 
       {/* User profile & Command footer */}
       <div className="p-3 border-t border-slate-200 dark:border-slate-800">
-        <div className="px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800">
-          <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">
-            {user.name}
-          </p>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
-            {user.role || 'Product & Delivery Lead'}
-          </p>
+        <div className="px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800 flex items-center justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">
+              {user.name}
+            </p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+              {user.role || 'Product & Delivery Lead'}
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              if (confirm('Sign out of My Work OS?')) {
+                signOutUser();
+              }
+            }}
+            title="Sign out"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 transition-colors"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </aside>

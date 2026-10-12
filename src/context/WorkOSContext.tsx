@@ -148,6 +148,8 @@ interface WorkOSContextType {
   clearAllNotifications: () => void;
 
   // Supabase & Auth
+  isAuthenticated: boolean;
+  loginUser: (email: string) => void;
   isSupabaseConnected: boolean;
   isSyncing: boolean;
   lastSyncedAt: string | null;
@@ -188,6 +190,9 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const [isSupabaseConnected, setIsSupabaseConnected] = useState(false);
 
+  // Auth & Session state
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+
   // Data state (clean slate starting from 0)
   const [user, setUser] = useState<User>(CURRENT_USER);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -209,6 +214,11 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
       if (savedTheme === 'dark') {
         setDarkMode(true);
         document.documentElement.classList.add('dark');
+      }
+
+      const sessionAuth = localStorage.getItem('my_work_os_authenticated');
+      if (sessionAuth === 'true') {
+        setIsAuthenticated(true);
       }
 
       const client = getSupabase();
@@ -462,12 +472,23 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
     return res;
   };
 
+  const loginUser = (email: string) => {
+    setIsAuthenticated(true);
+    localStorage.setItem('my_work_os_authenticated', 'true');
+    setUser((prev) => ({
+      ...prev,
+      email,
+      name: prev.name || 'Manashjyoti Barman',
+    }));
+  };
+
   const signOutUser = async () => {
     const client = getSupabase();
     if (client) {
       await client.auth.signOut();
     }
-    setUser(CURRENT_USER);
+    setIsAuthenticated(false);
+    localStorage.removeItem('my_work_os_authenticated');
   };
 
   // DYNAMIC TASK ACTIONS
@@ -1449,6 +1470,8 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
         resetToSeedData,
         exportDataJSON,
         importDataJSON,
+        isAuthenticated,
+        loginUser,
         isSupabaseConnected,
         isSyncing,
         lastSyncedAt,

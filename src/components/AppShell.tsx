@@ -17,6 +17,7 @@ import ReportsView from '@/components/reports/ReportsView';
 import AchievementsView from '@/components/achievements/AchievementsView';
 import NotesView from '@/components/notes/NotesView';
 import SettingsView from '@/components/settings/SettingsView';
+import LoginPage from '@/components/auth/LoginPage';
 
 // Modals
 import QuickTaskUpdateModal from '@/components/modals/QuickTaskUpdateModal';
@@ -27,8 +28,12 @@ import GlobalSearchModal from '@/components/modals/GlobalSearchModal';
 import AuthModal from '@/components/modals/AuthModal';
 
 function AppContent() {
-  const { activeTab } = useWorkOS();
+  const { activeTab, isAuthenticated, loginUser } = useWorkOS();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  if (!isAuthenticated) {
+    return <LoginPage onLoginSuccess={loginUser} />;
+  }
 
   const renderActiveView = () => {
     switch (activeTab) {
