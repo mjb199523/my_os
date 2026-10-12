@@ -20,7 +20,11 @@ export default function SettingsView() {
     resetToSeedData,
     exportDataJSON,
     importDataJSON,
-    isSupabaseMode,
+    isSupabaseConnected,
+    setIsAuthModalOpen,
+    syncWithSupabase,
+    isSyncing,
+    lastSyncedAt,
   } = useWorkOS();
 
   const [importStatus, setImportStatus] = useState<string | null>(null);
@@ -84,23 +88,37 @@ export default function SettingsView() {
 
       {/* Database & Supabase Mode Card */}
       <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center space-x-2.5">
             <Database className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             <h2 className="text-sm font-bold text-slate-900 dark:text-white">
               Database &amp; Cloud Synchronization
             </h2>
           </div>
-          <span
-            className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
-              isSupabaseMode
-                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                : 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
-            }`}
-          >
-            {isSupabaseMode ? 'Supabase Live Sync' : 'Local Storage Mode (Zero Config)'}
-          </span>
+          <div className="flex items-center space-x-2">
+            <span
+              className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
+                isSupabaseConnected
+                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                  : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+              }`}
+            >
+              {isSupabaseConnected ? 'Supabase Live Connected' : 'Local Storage Mode'}
+            </span>
+            <button
+              onClick={() => setIsAuthModalOpen(true)}
+              className="px-3 py-1 text-xs font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 shadow-2xs"
+            >
+              {isSupabaseConnected ? 'Configure Supabase' : 'Connect Supabase'}
+            </button>
+          </div>
         </div>
+
+        {lastSyncedAt && (
+          <p className="text-[11px] text-slate-500">
+            Last synchronized at: {lastSyncedAt}
+          </p>
+        )}
 
         <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
           The application operates seamlessly with persistent LocalStorage out of the box. To deploy to Supabase on Vercel, run the SQL schema in <code className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-blue-600">supabase/schema.sql</code> and set:

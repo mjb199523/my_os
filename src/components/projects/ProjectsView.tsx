@@ -18,6 +18,8 @@ import {
   FileText,
   History,
   X,
+  Edit,
+  Trash2,
 } from 'lucide-react';
 
 export default function ProjectsView() {
@@ -32,7 +34,10 @@ export default function ProjectsView() {
     setSelectedProjectId,
     getProjectStats,
     addProject,
+    updateProject,
+    deleteProject,
     addMilestone,
+    deleteMilestone,
     toggleMilestoneStatus,
     openQuickAdd,
     openQuickUpdate,
@@ -40,6 +45,7 @@ export default function ProjectsView() {
 
   // Create Project modal state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<Priority>('High');
@@ -59,10 +65,10 @@ export default function ProjectsView() {
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
 
-  const handleCreateProject = (e: React.FormEvent) => {
+  const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
-    addProject({
+    await addProject({
       name: name.trim(),
       description,
       priority,
@@ -77,10 +83,35 @@ export default function ProjectsView() {
     setIsCreateOpen(false);
   };
 
-  const handleAddMilestone = (e: React.FormEvent) => {
+  const handleEditProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedProject || !name.trim()) return;
+    await updateProject(selectedProject.id, {
+      name: name.trim(),
+      description,
+      priority,
+      status,
+      start_date: startDate,
+      end_date: endDate,
+    });
+    setIsEditOpen(false);
+  };
+
+  const openEditModal = () => {
+    if (!selectedProject) return;
+    setName(selectedProject.name);
+    setDescription(selectedProject.description);
+    setPriority(selectedProject.priority);
+    setStatus(selectedProject.status);
+    setStartDate(selectedProject.start_date);
+    setEndDate(selectedProject.end_date);
+    setIsEditOpen(true);
+  };
+
+  const handleAddMilestone = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMilestoneTitle.trim() || !selectedProjectId) return;
-    addMilestone({
+    await addMilestone({
       project_id: selectedProjectId,
       title: newMilestoneTitle.trim(),
       due_date: newMilestoneDate || new Date().toISOString().split('T')[0],
@@ -120,7 +151,7 @@ export default function ProjectsView() {
                 <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300">
                   {selectedProject.status}
                 </span>
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                   {selectedProject.priority} Priority
                 </span>
               </div>
@@ -131,11 +162,32 @@ export default function ProjectsView() {
 
             <div className="flex items-center space-x-2">
               <button
-                onClick={() => openQuickAdd('task')}
+                onClick={openEditModal}
+                className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors flex items-center space-x-1"
+              >
+                <Edit className="w-3.5 h-3.5" />
+                <span>Edit Project</span>
+              </button>
+
+              <button
+                onClick={() => openQuickAdd('task', selectedProject.id)}
                 className="px-3.5 py-1.5 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-all flex items-center space-x-1"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Add Task</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  if (confirm(`Delete project "${selectedProject.name}" and return to portfolio?`)) {
+                    deleteProject(selectedProject.id);
+                    setSelectedProjectId(null);
+                  }
+                }}
+                className="p-1.5 text-slate-400 hover:text-red-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40"
+                title="Delete Project"
+              >
+                <Trash2 className="w-4 h-4" />
               </button>
             </div>
           </div>
@@ -222,7 +274,17 @@ export default function ProjectsView() {
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
           {/* TASKS TAB */}
           {detailTab === 'tasks' && (
-            <div className="space-y-3">
+            <div className="space-y-4">
+              <div className="flex justify-end">
+                <button
+                  onClick={() => openQuickAdd('task', selectedProject.id)}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 text-white flex items-center space-x-1"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>New Project Task</span>
+                </button>
+              </div>
+
               {projectTasks.length === 0 ? (
                 <p className="text-xs text-slate-400 py-6 text-center">
                   No tasks associated with this project yet.
@@ -260,7 +322,17 @@ export default function ProjectsView() {
 
           {/* ISSUES TAB */}
           {detailTab === 'issues' && (
-            <div className="space-y-3">
+            <div className="space-y-4">
+              <div className="flex justify-end">
+                <button
+                  onClick={() => openQuickAdd('issue', selectedProject.id)}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-600 text-white flex items-center space-x-1"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Log Blocker / Issue</span>
+                </button>
+              </div>
+
               {projectIssues.length === 0 ? (
                 <p className="text-xs text-slate-400 py-6 text-center">
                   No open issues or blockers logged for this project.
@@ -295,7 +367,17 @@ export default function ProjectsView() {
 
           {/* FOLLOWUPS TAB */}
           {detailTab === 'followups' && (
-            <div className="space-y-3">
+            <div className="space-y-4">
+              <div className="flex justify-end">
+                <button
+                  onClick={() => openQuickAdd('followup', selectedProject.id)}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-600 text-white flex items-center space-x-1"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Follow-up</span>
+                </button>
+              </div>
+
               {projectFollowups.length === 0 ? (
                 <p className="text-xs text-slate-400 py-6 text-center">
                   No follow-ups recorded for this project.
@@ -325,7 +407,17 @@ export default function ProjectsView() {
 
           {/* MEETINGS TAB */}
           {detailTab === 'meetings' && (
-            <div className="space-y-3">
+            <div className="space-y-4">
+              <div className="flex justify-end">
+                <button
+                  onClick={() => openQuickAdd('meeting', selectedProject.id)}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-purple-600 text-white flex items-center space-x-1"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Schedule Meeting</span>
+                </button>
+              </div>
+
               {projectMeetings.length === 0 ? (
                 <p className="text-xs text-slate-400 py-6 text-center">
                   No meetings linked to this project.
@@ -384,10 +476,12 @@ export default function ProjectsView() {
                 {projectMilestones.map((m) => (
                   <div
                     key={m.id}
-                    onClick={() => toggleMilestoneStatus(m.id)}
-                    className="cursor-pointer p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 flex items-center justify-between hover:border-slate-300 transition-colors"
+                    className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 flex items-center justify-between hover:border-slate-300 transition-colors"
                   >
-                    <div className="flex items-center space-x-3">
+                    <div
+                      onClick={() => toggleMilestoneStatus(m.id)}
+                      className="flex items-center space-x-3 cursor-pointer flex-1"
+                    >
                       <input
                         type="checkbox"
                         checked={m.status === 'Completed'}
@@ -404,15 +498,148 @@ export default function ProjectsView() {
                         {m.title}
                       </span>
                     </div>
-                    <span className="text-[11px] text-slate-500 font-medium">
-                      Target: {m.due_date}
-                    </span>
+
+                    <div className="flex items-center space-x-3">
+                      <span className="text-[11px] text-slate-500 font-medium">
+                        Target: {m.due_date}
+                      </span>
+                      <button
+                        onClick={() => deleteMilestone(m.id)}
+                        className="p-1 text-slate-400 hover:text-red-600"
+                        title="Delete Milestone"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
           )}
         </div>
+
+        {/* EDIT PROJECT MODAL */}
+        {isEditOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
+            <div className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Edit Project Details
+                </h3>
+                <button
+                  onClick={() => setIsEditOpen(false)}
+                  className="p-1 rounded text-slate-400 hover:text-slate-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleEditProject} className="space-y-3 mt-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Project Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Description
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white resize-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Status
+                    </label>
+                    <select
+                      value={status}
+                      onChange={(e) => setStatus(e.target.value as ProjectStatus)}
+                      className="w-full px-3 py-2 text-xs rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                    >
+                      {['Planning', 'Active', 'On Hold', 'Completed', 'Archived'].map((st) => (
+                        <option key={st} value={st}>
+                          {st}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Priority
+                    </label>
+                    <select
+                      value={priority}
+                      onChange={(e) => setPriority(e.target.value as Priority)}
+                      className="w-full px-3 py-2 text-xs rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                    >
+                      {['Low', 'Medium', 'High', 'Critical'].map((pr) => (
+                        <option key={pr} value={pr}>
+                          {pr}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Start Date
+                    </label>
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="w-full px-3 py-2 text-xs rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Target End Date
+                    </label>
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="w-full px-3 py-2 text-xs rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-2 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditOpen(false)}
+                    className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

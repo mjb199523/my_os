@@ -35,6 +35,8 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
     markNotificationRead,
     clearAllNotifications,
     setActiveTab,
+    isSupabaseConnected,
+    setIsAuthModalOpen,
   } = useWorkOS();
 
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -140,8 +142,26 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
           </button>
         </div>
 
-        {/* Right side: Global Search, Notifications, Theme toggle */}
+        {/* Right side: Supabase Sync, Global Search, Notifications, Theme toggle */}
         <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
+          {/* Supabase Status / Auth Button */}
+          <button
+            onClick={() => setIsAuthModalOpen(true)}
+            className={`hidden sm:inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+              isSupabaseConnected
+                ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-blue-400'
+            }`}
+            title="Configure Supabase Database & Authentication"
+          >
+            <span
+              className={`w-2 h-2 rounded-full ${
+                isSupabaseConnected ? 'bg-emerald-500' : 'bg-amber-400'
+              }`}
+            />
+            <span>{isSupabaseConnected ? 'Supabase Synced' : 'Connect Cloud'}</span>
+          </button>
+
           {/* Global Search trigger */}
           <button
             onClick={() => setIsSearchOpen(true)}

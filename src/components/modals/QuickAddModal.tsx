@@ -27,6 +27,7 @@ export default function QuickAddModal() {
     isQuickAddOpen,
     closeQuickAdd,
     quickAddType,
+    quickAddProjectId,
     openQuickAdd,
     projects,
     tasks,
@@ -46,7 +47,14 @@ export default function QuickAddModal() {
     if (quickAddType) {
       setActiveTab(quickAddType);
     }
-  }, [quickAddType]);
+    if (quickAddProjectId) {
+      setTaskProjectId(quickAddProjectId);
+      setFolProjectId(quickAddProjectId);
+      setMtgProjectId(quickAddProjectId);
+      setIssProjectId(quickAddProjectId);
+      setNoteProjectId(quickAddProjectId);
+    }
+  }, [quickAddType, quickAddProjectId]);
 
   // Task form state
   const [taskName, setTaskName] = useState('');

@@ -24,6 +24,8 @@ import TaskHistoryModal from '@/components/modals/TaskHistoryModal';
 import QuickAddModal from '@/components/modals/QuickAddModal';
 import GlobalSearchModal from '@/components/modals/GlobalSearchModal';
 
+import AuthModal from '@/components/modals/AuthModal';
+
 function AppContent() {
   const { activeTab } = useWorkOS();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -94,6 +96,7 @@ function AppContent() {
       <TaskHistoryModal />
       <QuickAddModal />
       <GlobalSearchModal />
+      <AuthModal />
     </div>
   );
 }

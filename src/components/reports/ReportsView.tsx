@@ -42,19 +42,38 @@ export default function ReportsView() {
   const resolvedIssues = issues.filter((i) => i.status === 'Resolved' || i.status === 'Closed').length;
   const completedFollowups = followups.filter((f) => f.status === 'Completed').length;
 
-  // 1. Chart: Tasks completed by day (last 7 days)
+  // 1. Chart: Tasks completed vs created dynamically by day
   const tasksByDayData = useMemo(() => {
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    return [
-      { day: 'Mon', completed: 3, created: 4 },
-      { day: 'Tue', completed: 5, created: 3 },
-      { day: 'Wed', completed: 4, created: 6 },
-      { day: 'Thu', completed: 6, created: 2 },
-      { day: 'Fri', completed: 5, created: 5 },
-      { day: 'Sat', completed: 2, created: 1 },
-      { day: 'Sun', completed: 1, created: 0 },
-    ];
-  }, []);
+    const result = [];
+    const now = new Date();
+    const numDays = period === 'weekly' ? 7 : 14;
+
+    for (let i = numDays - 1; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      const dayLabel = d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric' });
+
+      const completedCount = tasks.filter((t) => {
+        if (t.status !== 'Done') return false;
+        if (t.completed_at) return t.completed_at.startsWith(dateStr);
+        return t.due_date === dateStr;
+      }).length;
+
+      const createdCount = tasks.filter((t) => {
+        if (t.created_at) return t.created_at.startsWith(dateStr);
+        return t.start_date === dateStr;
+      }).length;
+
+      result.push({
+        day: dayLabel,
+        date: dateStr,
+        completed: completedCount,
+        created: createdCount,
+      });
+    }
+    return result;
+  }, [tasks, period]);
 
   // 2. Chart: Tasks by Project
   const tasksByProjectData = useMemo(() => {

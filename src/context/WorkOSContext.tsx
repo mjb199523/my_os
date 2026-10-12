@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode, useCallback } from 'react';
 import {
   User,
   Project,
@@ -31,7 +31,7 @@ import {
   INITIAL_MILESTONES,
   INITIAL_NOTES,
 } from '@/lib/seed-data';
-import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { getSupabase, isSupabaseConfigured, setSupabaseCredentials, clearSupabaseCredentials } from '@/lib/supabase';
 
 interface WorkOSContextType {
   user: User;
@@ -59,7 +59,8 @@ interface WorkOSContextType {
   isQuickAddOpen: boolean;
   setIsQuickAddOpen: (open: boolean) => void;
   quickAddType: 'task' | 'followup' | 'meeting' | 'issue' | 'note' | 'achievement' | null;
-  openQuickAdd: (type?: 'task' | 'followup' | 'meeting' | 'issue' | 'note' | 'achievement') => void;
+  quickAddProjectId?: string;
+  openQuickAdd: (type?: 'task' | 'followup' | 'meeting' | 'issue' | 'note' | 'achievement', projectId?: string) => void;
   closeQuickAdd: () => void;
   quickUpdateTask: Task | null;
   openQuickUpdate: (task: Task) => void;
@@ -67,12 +68,14 @@ interface WorkOSContextType {
   historyTask: Task | null;
   openHistory: (task: Task) => void;
   closeHistory: () => void;
+  isAuthModalOpen: boolean;
+  setIsAuthModalOpen: (open: boolean) => void;
 
   // Task actions
-  addTask: (task: Partial<Task>) => void;
-  updateTask: (id: string, updates: Partial<Task>) => void;
-  deleteTask: (id: string) => void;
-  updateTaskStatus: (id: string, newStatus: TaskStatus) => void;
+  addTask: (task: Partial<Task>) => Promise<void>;
+  updateTask: (id: string, updates: Partial<Task>) => Promise<void>;
+  deleteTask: (id: string) => Promise<void>;
+  updateTaskStatus: (id: string, newStatus: TaskStatus) => Promise<void>;
   submitTaskUpdate: (
     taskId: string,
     payload: {
@@ -83,36 +86,37 @@ interface WorkOSContextType {
       nextFollowupDate?: string;
       notes?: string;
     }
-  ) => void;
+  ) => Promise<void>;
 
   // Project actions
-  addProject: (proj: Partial<Project>) => void;
-  updateProject: (id: string, updates: Partial<Project>) => void;
-  deleteProject: (id: string) => void;
+  addProject: (proj: Partial<Project>) => Promise<void>;
+  updateProject: (id: string, updates: Partial<Project>) => Promise<void>;
+  deleteProject: (id: string) => Promise<void>;
   getProjectProgress: (projectId: string) => number;
   getProjectStats: (projectId: string) => { total: number; completed: number; pending: number; blocked: number; progress: number };
 
   // Followup actions
-  addFollowup: (f: Partial<Followup>) => void;
-  updateFollowup: (id: string, updates: Partial<Followup>) => void;
-  deleteFollowup: (id: string) => void;
-  updateFollowupStatus: (id: string, status: FollowupStatus) => void;
+  addFollowup: (f: Partial<Followup>) => Promise<void>;
+  updateFollowup: (id: string, updates: Partial<Followup>) => Promise<void>;
+  deleteFollowup: (id: string) => Promise<void>;
+  updateFollowupStatus: (id: string, status: FollowupStatus) => Promise<void>;
 
   // Meeting actions
-  addMeeting: (m: Partial<Meeting>) => void;
-  updateMeeting: (id: string, updates: Partial<Meeting>) => void;
-  deleteMeeting: (id: string) => void;
-  convertMeetingActionItemToTask: (meetingId: string, actionItemId: string) => void;
+  addMeeting: (m: Partial<Meeting>) => Promise<void>;
+  updateMeeting: (id: string, updates: Partial<Meeting>) => Promise<void>;
+  deleteMeeting: (id: string) => Promise<void>;
+  convertMeetingActionItemToTask: (meetingId: string, actionItemId: string) => Promise<void>;
+  addMeetingActionItem: (meetingId: string, text: string, assignedTo?: string) => Promise<void>;
 
   // Issue actions
-  addIssue: (i: Partial<Issue>) => void;
-  updateIssue: (id: string, updates: Partial<Issue>) => void;
-  deleteIssue: (id: string) => void;
-  resolveIssue: (id: string) => void;
+  addIssue: (i: Partial<Issue>) => Promise<void>;
+  updateIssue: (id: string, updates: Partial<Issue>) => Promise<void>;
+  deleteIssue: (id: string) => Promise<void>;
+  resolveIssue: (id: string) => Promise<void>;
 
   // Daily log actions
   getDailyLog: (date: string) => DailyLog | undefined;
-  saveDailyLog: (log: Partial<DailyLog>) => void;
+  saveDailyLog: (log: Partial<DailyLog>) => Promise<void>;
   generateTodaySummary: (date: string) => {
     worked_on: string;
     completed: string;
@@ -123,36 +127,45 @@ interface WorkOSContextType {
   };
 
   // Achievement actions
-  addAchievement: (a: Partial<Achievement>) => void;
-  deleteAchievement: (id: string) => void;
+  addAchievement: (a: Partial<Achievement>) => Promise<void>;
+  deleteAchievement: (id: string) => Promise<void>;
 
   // Milestone actions
-  addMilestone: (m: Partial<Milestone>) => void;
-  toggleMilestoneStatus: (id: string) => void;
+  addMilestone: (m: Partial<Milestone>) => Promise<void>;
+  deleteMilestone: (id: string) => Promise<void>;
+  toggleMilestoneStatus: (id: string) => Promise<void>;
 
   // Note actions
-  addNote: (n: Partial<Note>) => void;
-  updateNote: (id: string, updates: Partial<Note>) => void;
-  deleteNote: (id: string) => void;
+  addNote: (n: Partial<Note>) => Promise<void>;
+  updateNote: (id: string, updates: Partial<Note>) => Promise<void>;
+  deleteNote: (id: string) => Promise<void>;
 
   // Notification actions
   markNotificationRead: (id: string) => void;
   clearAllNotifications: () => void;
 
-  // Storage / Sync
+  // Supabase & Auth
+  isSupabaseConnected: boolean;
+  isSyncing: boolean;
+  lastSyncedAt: string | null;
+  connectSupabase: (url: string, key: string) => Promise<boolean>;
+  disconnectSupabase: () => void;
+  syncWithSupabase: () => Promise<void>;
+  signInWithPassword: (email: string, pass: string) => Promise<{ error: any }>;
+  signUpWithPassword: (email: string, pass: string, name: string) => Promise<{ error: any }>;
+  signOutUser: () => Promise<void>;
+
+  // System & Backup
   resetToSeedData: () => void;
   exportDataJSON: () => string;
   importDataJSON: (jsonStr: string) => boolean;
-  isSupabaseMode: boolean;
-  syncWithSupabase: () => Promise<void>;
 }
 
 const WorkOSContext = createContext<WorkOSContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'my_work_os_data_v1';
+const STORAGE_KEY = 'my_work_os_data_v2';
 
 export function WorkOSProvider({ children }: { children: ReactNode }) {
-  // Navigation & Theme state
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [darkMode, setDarkMode] = useState<boolean>(false);
@@ -161,8 +174,15 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
   const [quickAddType, setQuickAddType] = useState<'task' | 'followup' | 'meeting' | 'issue' | 'note' | 'achievement' | null>(null);
+  const [quickAddProjectId, setQuickAddProjectId] = useState<string | undefined>(undefined);
   const [quickUpdateTask, setQuickUpdateTask] = useState<Task | null>(null);
   const [historyTask, setHistoryTask] = useState<Task | null>(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+
+  // Sync state
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const [isSupabaseConnected, setIsSupabaseConnected] = useState(false);
 
   // Data state
   const [user, setUser] = useState<User>(CURRENT_USER);
@@ -178,7 +198,7 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
   const [milestones, setMilestones] = useState<Milestone[]>(INITIAL_MILESTONES);
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // Load from localStorage on mount
+  // 1. Initial Load & Setup
   useEffect(() => {
     try {
       const savedTheme = localStorage.getItem('my_work_os_theme');
@@ -187,19 +207,24 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
         document.documentElement.classList.add('dark');
       }
 
+      const client = getSupabase();
+      if (client) {
+        setIsSupabaseConnected(true);
+      }
+
       const savedData = localStorage.getItem(STORAGE_KEY);
       if (savedData) {
         const parsed = JSON.parse(savedData);
-        if (parsed.projects) setProjects(parsed.projects);
-        if (parsed.tasks) setTasks(parsed.tasks);
-        if (parsed.taskUpdates) setTaskUpdates(parsed.taskUpdates);
-        if (parsed.followups) setFollowups(parsed.followups);
-        if (parsed.meetings) setMeetings(parsed.meetings);
-        if (parsed.issues) setIssues(parsed.issues);
-        if (parsed.dailyLogs) setDailyLogs(parsed.dailyLogs);
-        if (parsed.achievements) setAchievements(parsed.achievements);
-        if (parsed.notes) setNotes(parsed.notes);
-        if (parsed.milestones) setMilestones(parsed.milestones);
+        if (parsed.projects?.length) setProjects(parsed.projects);
+        if (parsed.tasks?.length) setTasks(parsed.tasks);
+        if (parsed.taskUpdates?.length) setTaskUpdates(parsed.taskUpdates);
+        if (parsed.followups?.length) setFollowups(parsed.followups);
+        if (parsed.meetings?.length) setMeetings(parsed.meetings);
+        if (parsed.issues?.length) setIssues(parsed.issues);
+        if (parsed.dailyLogs?.length) setDailyLogs(parsed.dailyLogs);
+        if (parsed.achievements?.length) setAchievements(parsed.achievements);
+        if (parsed.notes?.length) setNotes(parsed.notes);
+        if (parsed.milestones?.length) setMilestones(parsed.milestones);
         if (parsed.user) setUser(parsed.user);
       }
     } catch (e) {
@@ -209,7 +234,7 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Save to localStorage when state changes
+  // 2. Persistence to LocalStorage on every state update
   useEffect(() => {
     if (!isInitialized) return;
     try {
@@ -245,6 +270,43 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
     milestones,
   ]);
 
+  // 3. Supabase Auth Listener & Cloud Sync
+  useEffect(() => {
+    const client = getSupabase();
+    if (!client) return;
+
+    // Check existing session
+    client.auth.getUser().then(({ data }) => {
+      if (data?.user) {
+        setUser({
+          id: data.user.id,
+          name: data.user.user_metadata?.full_name || data.user.email?.split('@')[0] || 'User',
+          email: data.user.email || '',
+          avatar_url: data.user.user_metadata?.avatar_url || '',
+          role: data.user.user_metadata?.role || 'Product & Delivery Manager',
+          created_at: data.user.created_at,
+        });
+      }
+    });
+
+    const { data: authListener } = client.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setUser({
+          id: session.user.id,
+          name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
+          email: session.user.email || '',
+          avatar_url: session.user.user_metadata?.avatar_url || '',
+          role: session.user.user_metadata?.role || 'Product & Delivery Manager',
+          created_at: session.user.created_at,
+        });
+      }
+    });
+
+    return () => {
+      authListener?.subscription.unsubscribe();
+    };
+  }, [isSupabaseConnected]);
+
   // Dark mode toggle
   const toggleDarkMode = () => {
     setDarkMode((prev) => {
@@ -273,34 +335,138 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Modals helpers
-  const openQuickAdd = (type: 'task' | 'followup' | 'meeting' | 'issue' | 'note' | 'achievement' = 'task') => {
+  const openQuickAdd = (type: 'task' | 'followup' | 'meeting' | 'issue' | 'note' | 'achievement' = 'task', projectId?: string) => {
     setQuickAddType(type);
+    setQuickAddProjectId(projectId);
     setIsQuickAddOpen(true);
   };
 
   const closeQuickAdd = () => {
     setIsQuickAddOpen(false);
     setQuickAddType(null);
+    setQuickAddProjectId(undefined);
   };
 
-  const openQuickUpdate = (task: Task) => {
-    setQuickUpdateTask(task);
+  const openQuickUpdate = (task: Task) => setQuickUpdateTask(task);
+  const closeQuickUpdate = () => setQuickUpdateTask(null);
+  const openHistory = (task: Task) => setHistoryTask(task);
+  const closeHistory = () => setHistoryTask(null);
+
+  // SUPABASE CLOUD SYNC METHOD
+  const syncWithSupabase = useCallback(async () => {
+    const client = getSupabase();
+    if (!client) return;
+
+    setIsSyncing(true);
+    try {
+      // 1. Fetch remote projects
+      const { data: remoteProjects, error: prjErr } = await client.from('projects').select('*');
+      if (!prjErr && remoteProjects?.length) {
+        setProjects(remoteProjects);
+      }
+
+      // 2. Fetch remote tasks
+      const { data: remoteTasks, error: tskErr } = await client.from('tasks').select('*');
+      if (!tskErr && remoteTasks?.length) {
+        setTasks(remoteTasks);
+      }
+
+      // 3. Fetch remote followups
+      const { data: remoteFollowups, error: folErr } = await client.from('followups').select('*');
+      if (!folErr && remoteFollowups?.length) {
+        setFollowups(remoteFollowups);
+      }
+
+      // 4. Fetch remote meetings
+      const { data: remoteMeetings, error: mtgErr } = await client.from('meetings').select('*');
+      if (!mtgErr && remoteMeetings?.length) {
+        setMeetings(remoteMeetings);
+      }
+
+      // 5. Fetch remote issues
+      const { data: remoteIssues, error: issErr } = await client.from('issues').select('*');
+      if (!issErr && remoteIssues?.length) {
+        setIssues(remoteIssues);
+      }
+
+      // 6. Fetch remote daily logs
+      const { data: remoteLogs, error: logErr } = await client.from('daily_logs').select('*');
+      if (!logErr && remoteLogs?.length) {
+        setDailyLogs(remoteLogs);
+      }
+
+      // 7. Fetch remote achievements
+      const { data: remoteAch, error: achErr } = await client.from('achievements').select('*');
+      if (!achErr && remoteAch?.length) {
+        setAchievements(remoteAch);
+      }
+
+      // 8. Fetch remote milestones
+      const { data: remoteMls, error: mlsErr } = await client.from('milestones').select('*');
+      if (!mlsErr && remoteMls?.length) {
+        setMilestones(remoteMls);
+      }
+
+      // 9. Fetch remote notes
+      const { data: remoteNotes, error: notErr } = await client.from('notes').select('*');
+      if (!notErr && remoteNotes?.length) {
+        setNotes(remoteNotes);
+      }
+
+      setLastSyncedAt(new Date().toLocaleTimeString());
+    } catch (e) {
+      console.error('Supabase sync error:', e);
+    } finally {
+      setIsSyncing(false);
+    }
+  }, []);
+
+  const connectSupabase = async (url: string, key: string): Promise<boolean> => {
+    const success = setSupabaseCredentials(url, key);
+    if (success) {
+      setIsSupabaseConnected(true);
+      await syncWithSupabase();
+      return true;
+    }
+    return false;
   };
 
-  const closeQuickUpdate = () => {
-    setQuickUpdateTask(null);
+  const disconnectSupabase = () => {
+    clearSupabaseCredentials();
+    setIsSupabaseConnected(false);
   };
 
-  const openHistory = (task: Task) => {
-    setHistoryTask(task);
+  const signInWithPassword = async (email: string, pass: string) => {
+    const client = getSupabase();
+    if (!client) return { error: { message: 'Supabase client is not connected' } };
+    const res = await client.auth.signInWithPassword({ email, password: pass });
+    if (!res.error) {
+      await syncWithSupabase();
+    }
+    return res;
   };
 
-  const closeHistory = () => {
-    setHistoryTask(null);
+  const signUpWithPassword = async (email: string, pass: string, name: string) => {
+    const client = getSupabase();
+    if (!client) return { error: { message: 'Supabase client is not connected' } };
+    const res = await client.auth.signUp({
+      email,
+      password: pass,
+      options: { data: { full_name: name } },
+    });
+    return res;
   };
 
-  // Task methods
-  const addTask = (newTask: Partial<Task>) => {
+  const signOutUser = async () => {
+    const client = getSupabase();
+    if (client) {
+      await client.auth.signOut();
+    }
+    setUser(CURRENT_USER);
+  };
+
+  // DYNAMIC TASK ACTIONS
+  const addTask = async (newTask: Partial<Task>) => {
     const id = `tsk_${Date.now()}`;
     const task: Task = {
       id,
@@ -322,9 +488,9 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
+
     setTasks((prev) => [task, ...prev]);
 
-    // Initial update history item
     const updateItem: TaskUpdate = {
       id: `upd_${Date.now()}`,
       task_id: id,
@@ -337,49 +503,81 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
       created_at: new Date().toISOString(),
     };
     setTaskUpdates((prev) => [updateItem, ...prev]);
+
+    // Remote Supabase write
+    const client = getSupabase();
+    if (client) {
+      try {
+        await client.from('tasks').insert([task]);
+        await client.from('task_updates').insert([updateItem]);
+      } catch (err) {
+        console.error('Error inserting task to Supabase:', err);
+      }
+    }
   };
 
-  const updateTask = (id: string, updates: Partial<Task>) => {
+  const updateTask = async (id: string, updates: Partial<Task>) => {
+    const nowIso = new Date().toISOString();
+    let updatedTaskObj: Task | null = null;
+
     setTasks((prev) =>
       prev.map((t) => {
         if (t.id === id) {
-          const updated = { ...t, ...updates, updated_at: new Date().toISOString() };
+          const updated = { ...t, ...updates, updated_at: nowIso };
           if (updates.status === 'Done' && !t.completed_at) {
-            updated.completed_at = new Date().toISOString();
+            updated.completed_at = nowIso;
             updated.progress = 100;
           }
+          updatedTaskObj = updated;
           return updated;
         }
         return t;
       })
     );
+
+    const client = getSupabase();
+    if (client && updatedTaskObj) {
+      try {
+        await client.from('tasks').update(updates).eq('id', id);
+      } catch (err) {
+        console.error('Error updating task in Supabase:', err);
+      }
+    }
   };
 
-  const deleteTask = (id: string) => {
+  const deleteTask = async (id: string) => {
     setTasks((prev) => prev.filter((t) => t.id !== id));
+    const client = getSupabase();
+    if (client) {
+      try {
+        await client.from('tasks').delete().eq('id', id);
+      } catch (err) {
+        console.error('Error deleting task in Supabase:', err);
+      }
+    }
   };
 
-  const updateTaskStatus = (id: string, newStatus: TaskStatus) => {
+  const updateTaskStatus = async (id: string, newStatus: TaskStatus) => {
+    const nowIso = new Date().toISOString();
+    const isDone = newStatus === 'Done';
+    let target = tasks.find((t) => t.id === id);
+
     setTasks((prev) =>
       prev.map((t) => {
         if (t.id === id) {
-          const isDone = newStatus === 'Done';
           const updatedProgress = isDone ? 100 : t.status === 'Done' && !isDone ? 50 : t.progress;
-          const updated: Task = {
+          return {
             ...t,
             status: newStatus,
             progress: updatedProgress,
-            updated_at: new Date().toISOString(),
-            completed_at: isDone ? new Date().toISOString() : null,
+            updated_at: nowIso,
+            completed_at: isDone ? nowIso : null,
           };
-          return updated;
         }
         return t;
       })
     );
 
-    // Append to update history automatically
-    const target = tasks.find((t) => t.id === id);
     if (target) {
       const updateItem: TaskUpdate = {
         id: `upd_${Date.now()}`,
@@ -389,13 +587,28 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
         status: newStatus,
         progress: newStatus === 'Done' ? 100 : target.progress,
         update_text: `Status changed from ${target.status} to ${newStatus}`,
-        created_at: new Date().toISOString(),
+        created_at: nowIso,
       };
       setTaskUpdates((prev) => [updateItem, ...prev]);
+
+      const client = getSupabase();
+      if (client) {
+        try {
+          await client.from('tasks').update({
+            status: newStatus,
+            progress: isDone ? 100 : target.progress,
+            completed_at: isDone ? nowIso : null,
+            updated_at: nowIso,
+          }).eq('id', id);
+          await client.from('task_updates').insert([updateItem]);
+        } catch (err) {
+          console.error('Error updating task status in Supabase:', err);
+        }
+      }
     }
   };
 
-  const submitTaskUpdate = (
+  const submitTaskUpdate = async (
     taskId: string,
     payload: {
       status: TaskStatus;
@@ -406,7 +619,7 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
       notes?: string;
     }
   ) => {
-    updateTask(taskId, {
+    await updateTask(taskId, {
       status: payload.status,
       progress: payload.progress,
       next_action: payload.nextAction,
@@ -429,12 +642,18 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
 
     setTaskUpdates((prev) => [updateItem, ...prev]);
 
-    // If next followup date was specified, optionally sync or add a followup
+    const client = getSupabase();
+    if (client) {
+      try {
+        await client.from('task_updates').insert([updateItem]);
+      } catch (err) {
+        console.error('Error inserting task update to Supabase:', err);
+      }
+    }
+
     if (payload.nextFollowupDate && payload.nextAction) {
       const task = tasks.find((t) => t.id === taskId);
-      const newFollowup: Followup = {
-        id: `fol_${Date.now()}`,
-        user_id: user.id,
+      await addFollowup({
         project_id: task?.project_id,
         person: 'Assigned Stakeholder',
         topic: payload.nextAction,
@@ -443,15 +662,12 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
         followup_date: payload.nextFollowupDate,
         status: 'Pending',
         notes: `Auto-created from task update: ${task?.title}`,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      setFollowups((prev) => [newFollowup, ...prev]);
+      });
     }
   };
 
-  // Project methods
-  const addProject = (newProj: Partial<Project>) => {
+  // DYNAMIC PROJECT ACTIONS
+  const addProject = async (newProj: Partial<Project>) => {
     const proj: Project = {
       id: `prj_${Date.now()}`,
       user_id: user.id,
@@ -467,16 +683,41 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
       updated_at: new Date().toISOString(),
     };
     setProjects((prev) => [proj, ...prev]);
+
+    const client = getSupabase();
+    if (client) {
+      try {
+        await client.from('projects').insert([proj]);
+      } catch (err) {
+        console.error('Error inserting project to Supabase:', err);
+      }
+    }
   };
 
-  const updateProject = (id: string, updates: Partial<Project>) => {
+  const updateProject = async (id: string, updates: Partial<Project>) => {
     setProjects((prev) =>
       prev.map((p) => (p.id === id ? { ...p, ...updates, updated_at: new Date().toISOString() } : p))
     );
+    const client = getSupabase();
+    if (client) {
+      try {
+        await client.from('projects').update(updates).eq('id', id);
+      } catch (err) {
+        console.error('Error updating project in Supabase:', err);
+      }
+    }
   };
 
-  const deleteProject = (id: string) => {
+  const deleteProject = async (id: string) => {
     setProjects((prev) => prev.filter((p) => p.id !== id));
+    const client = getSupabase();
+    if (client) {
+      try {
+        await client.from('projects').delete().eq('id', id);
+      } catch (err) {
+        console.error('Error deleting project in Supabase:', err);
+      }
+    }
   };
 
   const getProjectStats = (projectId: string) => {
@@ -493,8 +734,8 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
     return getProjectStats(projectId).progress;
   };
 
-  // Followup methods
-  const addFollowup = (f: Partial<Followup>) => {
+  // DYNAMIC FOLLOWUP ACTIONS
+  const addFollowup = async (f: Partial<Followup>) => {
     const item: Followup = {
       id: `fol_${Date.now()}`,
       user_id: user.id,
@@ -510,24 +751,49 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
       updated_at: new Date().toISOString(),
     };
     setFollowups((prev) => [item, ...prev]);
+
+    const client = getSupabase();
+    if (client) {
+      try {
+        await client.from('followups').insert([item]);
+      } catch (err) {
+        console.error('Error inserting followup to Supabase:', err);
+      }
+    }
   };
 
-  const updateFollowup = (id: string, updates: Partial<Followup>) => {
+  const updateFollowup = async (id: string, updates: Partial<Followup>) => {
     setFollowups((prev) =>
       prev.map((f) => (f.id === id ? { ...f, ...updates, updated_at: new Date().toISOString() } : f))
     );
+    const client = getSupabase();
+    if (client) {
+      try {
+        await client.from('followups').update(updates).eq('id', id);
+      } catch (err) {
+        console.error('Error updating followup in Supabase:', err);
+      }
+    }
   };
 
-  const deleteFollowup = (id: string) => {
+  const deleteFollowup = async (id: string) => {
     setFollowups((prev) => prev.filter((f) => f.id !== id));
+    const client = getSupabase();
+    if (client) {
+      try {
+        await client.from('followups').delete().eq('id', id);
+      } catch (err) {
+        console.error('Error deleting followup in Supabase:', err);
+      }
+    }
   };
 
-  const updateFollowupStatus = (id: string, status: FollowupStatus) => {
-    updateFollowup(id, { status });
+  const updateFollowupStatus = async (id: string, status: FollowupStatus) => {
+    await updateFollowup(id, { status });
   };
 
-  // Meeting methods
-  const addMeeting = (m: Partial<Meeting>) => {
+  // DYNAMIC MEETING ACTIONS
+  const addMeeting = async (m: Partial<Meeting>) => {
     const item: Meeting = {
       id: `mtg_${Date.now()}`,
       user_id: user.id,
@@ -545,55 +811,78 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
       updated_at: new Date().toISOString(),
     };
     setMeetings((prev) => [item, ...prev]);
+
+    const client = getSupabase();
+    if (client) {
+      try {
+        await client.from('meetings').insert([item]);
+      } catch (err) {
+        console.error('Error inserting meeting to Supabase:', err);
+      }
+    }
   };
 
-  const updateMeeting = (id: string, updates: Partial<Meeting>) => {
+  const updateMeeting = async (id: string, updates: Partial<Meeting>) => {
     setMeetings((prev) =>
       prev.map((m) => (m.id === id ? { ...m, ...updates, updated_at: new Date().toISOString() } : m))
     );
+    const client = getSupabase();
+    if (client) {
+      try {
+        await client.from('meetings').update(updates).eq('id', id);
+      } catch (err) {
+        console.error('Error updating meeting in Supabase:', err);
+      }
+    }
   };
 
-  const deleteMeeting = (id: string) => {
+  const deleteMeeting = async (id: string) => {
     setMeetings((prev) => prev.filter((m) => m.id !== id));
+    const client = getSupabase();
+    if (client) {
+      try {
+        await client.from('meetings').delete().eq('id', id);
+      } catch (err) {
+        console.error('Error deleting meeting in Supabase:', err);
+      }
+    }
   };
 
-  const convertMeetingActionItemToTask = (meetingId: string, actionItemId: string) => {
+  const addMeetingActionItem = async (meetingId: string, text: string, assignedTo?: string) => {
+    const meeting = meetings.find((m) => m.id === meetingId);
+    if (!meeting) return;
+    const newItem = { id: `act_${Date.now()}`, text, assigned_to: assignedTo || 'Team' };
+    const updated = [...(meeting.action_items || []), newItem];
+    await updateMeeting(meetingId, { action_items: updated });
+  };
+
+  const convertMeetingActionItemToTask = async (meetingId: string, actionItemId: string) => {
     const meeting = meetings.find((m) => m.id === meetingId);
     if (!meeting || !meeting.action_items) return;
     const actionItem = meeting.action_items.find((a) => a.id === actionItemId);
     if (!actionItem) return;
 
-    // Create task
     const taskId = `tsk_${Date.now()}`;
-    const newTask: Task = {
+    await addTask({
       id: taskId,
-      user_id: user.id,
       project_id: meeting.project_id || projects[0]?.id || 'prj_assam_idp',
       title: actionItem.text,
       description: `Action item from meeting "${meeting.title}" on ${meeting.meeting_date}`,
       task_type: 'Development',
       priority: 'High',
       status: 'To Do',
-      progress: 0,
-      start_date: new Date().toISOString().split('T')[0],
-      due_date: new Date().toISOString().split('T')[0],
       next_action: `Assigned: ${actionItem.assigned_to || 'Assignee'}`,
       tags: ['Action Item', 'Meeting'],
-      notes: `Generated from meeting ${meeting.title}`,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    setTasks((prev) => [newTask, ...prev]);
+    });
 
-    // Update meeting action item with converted_to_task_id
     const updatedActionItems = meeting.action_items.map((a) =>
       a.id === actionItemId ? { ...a, converted_to_task_id: taskId } : a
     );
-    updateMeeting(meetingId, { action_items: updatedActionItems });
+    await updateMeeting(meetingId, { action_items: updatedActionItems });
   };
 
-  // Issue methods
-  const addIssue = (i: Partial<Issue>) => {
+  // DYNAMIC ISSUE ACTIONS
+  const addIssue = async (i: Partial<Issue>) => {
     const item: Issue = {
       id: `iss_${Date.now()}`,
       user_id: user.id,
@@ -609,42 +898,69 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
       created_at: new Date().toISOString(),
     };
     setIssues((prev) => [item, ...prev]);
+
+    const client = getSupabase();
+    if (client) {
+      try {
+        await client.from('issues').insert([item]);
+      } catch (err) {
+        console.error('Error inserting issue to Supabase:', err);
+      }
+    }
   };
 
-  const updateIssue = (id: string, updates: Partial<Issue>) => {
-    setIssues((prev) =>
-      prev.map((iss) => (iss.id === id ? { ...iss, ...updates } : iss))
-    );
+  const updateIssue = async (id: string, updates: Partial<Issue>) => {
+    setIssues((prev) => prev.map((iss) => (iss.id === id ? { ...iss, ...updates } : iss)));
+    const client = getSupabase();
+    if (client) {
+      try {
+        await client.from('issues').update(updates).eq('id', id);
+      } catch (err) {
+        console.error('Error updating issue in Supabase:', err);
+      }
+    }
   };
 
-  const deleteIssue = (id: string) => {
+  const deleteIssue = async (id: string) => {
     setIssues((prev) => prev.filter((i) => i.id !== id));
+    const client = getSupabase();
+    if (client) {
+      try {
+        await client.from('issues').delete().eq('id', id);
+      } catch (err) {
+        console.error('Error deleting issue in Supabase:', err);
+      }
+    }
   };
 
-  const resolveIssue = (id: string) => {
-    updateIssue(id, {
+  const resolveIssue = async (id: string) => {
+    await updateIssue(id, {
       status: 'Resolved',
       resolved_at: new Date().toISOString(),
     });
   };
 
-  // Daily log methods
+  // DYNAMIC DAILY LOG ACTIONS
   const getDailyLog = (date: string) => {
     return dailyLogs.find((l) => l.log_date === date);
   };
 
-  const saveDailyLog = (log: Partial<DailyLog>) => {
+  const saveDailyLog = async (log: Partial<DailyLog>) => {
     const targetDate = log.log_date;
     if (!targetDate) return;
+
+    let savedItem: DailyLog | null = null;
     setDailyLogs((prev) => {
       const index = prev.findIndex((l) => l.log_date === targetDate);
       if (index >= 0) {
         const copy = [...prev];
-        copy[index] = {
+        const updated = {
           ...copy[index],
           ...log,
           updated_at: new Date().toISOString(),
         } as DailyLog;
+        copy[index] = updated;
+        savedItem = updated;
         return copy;
       } else {
         const newLog: DailyLog = {
@@ -662,23 +978,28 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         };
+        savedItem = newLog;
         return [newLog, ...prev];
       }
     });
+
+    const client = getSupabase();
+    if (client && savedItem) {
+      try {
+        await client.from('daily_logs').upsert([savedItem]);
+      } catch (err) {
+        console.error('Error saving daily log to Supabase:', err);
+      }
+    }
   };
 
   const generateTodaySummary = (date: string) => {
-    // Collect today's completed tasks
     const completedTasksList = tasks.filter(
       (t) => t.status === 'Done' && (t.completed_at?.startsWith(date) || t.due_date === date)
     );
-    // Collect today's pending tasks
     const pendingTasksList = tasks.filter((t) => t.due_date === date && t.status !== 'Done');
-    // Collect blocked items
     const blockedList = tasks.filter((t) => t.status === 'Blocked');
-    // Collect today's meetings
     const todayMeetings = meetings.filter((m) => m.meeting_date === date);
-    // Collect today's followups
     const todayFollowups = followups.filter((f) => f.followup_date === date);
 
     const worked_on = [
@@ -693,7 +1014,7 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
 
     const pending = pendingTasksList.length > 0
       ? pendingTasksList.map((t) => `• Pending: ${t.title} (Progress: ${t.progress}%)`).join('\n')
-      : '• All today\'s scheduled tasks completed.';
+      : '• All scheduled deliverables on track.';
 
     const blocked = blockedList.length > 0
       ? blockedList.map((t) => `• Blocked: ${t.title} - ${t.next_action || 'Pending unblock'}`).join('\n')
@@ -716,8 +1037,8 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
     };
   };
 
-  // Achievement methods
-  const addAchievement = (a: Partial<Achievement>) => {
+  // DYNAMIC ACHIEVEMENT ACTIONS
+  const addAchievement = async (a: Partial<Achievement>) => {
     const item: Achievement = {
       id: `ach_${Date.now()}`,
       user_id: user.id,
@@ -731,14 +1052,31 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
       created_at: new Date().toISOString(),
     };
     setAchievements((prev) => [item, ...prev]);
+
+    const client = getSupabase();
+    if (client) {
+      try {
+        await client.from('achievements').insert([item]);
+      } catch (err) {
+        console.error('Error inserting achievement to Supabase:', err);
+      }
+    }
   };
 
-  const deleteAchievement = (id: string) => {
+  const deleteAchievement = async (id: string) => {
     setAchievements((prev) => prev.filter((a) => a.id !== id));
+    const client = getSupabase();
+    if (client) {
+      try {
+        await client.from('achievements').delete().eq('id', id);
+      } catch (err) {
+        console.error('Error deleting achievement in Supabase:', err);
+      }
+    }
   };
 
-  // Milestone methods
-  const addMilestone = (m: Partial<Milestone>) => {
+  // DYNAMIC MILESTONE ACTIONS
+  const addMilestone = async (m: Partial<Milestone>) => {
     const item: Milestone = {
       id: `mls_${Date.now()}`,
       project_id: m.project_id || projects[0]?.id || 'prj_assam_idp',
@@ -749,26 +1087,64 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
       created_at: new Date().toISOString(),
     };
     setMilestones((prev) => [item, ...prev]);
+
+    const client = getSupabase();
+    if (client) {
+      try {
+        await client.from('milestones').insert([item]);
+      } catch (err) {
+        console.error('Error inserting milestone to Supabase:', err);
+      }
+    }
   };
 
-  const toggleMilestoneStatus = (id: string) => {
+  const deleteMilestone = async (id: string) => {
+    setMilestones((prev) => prev.filter((m) => m.id !== id));
+    const client = getSupabase();
+    if (client) {
+      try {
+        await client.from('milestones').delete().eq('id', id);
+      } catch (err) {
+        console.error('Error deleting milestone in Supabase:', err);
+      }
+    }
+  };
+
+  const toggleMilestoneStatus = async (id: string) => {
+    const target = milestones.find((m) => m.id === id);
+    if (!target) return;
+
+    const nextStatus = target.status === 'Completed' ? 'In Progress' : 'Completed';
+    const nowIso = new Date().toISOString();
+    const completedAt = nextStatus === 'Completed' ? nowIso : null;
+
     setMilestones((prev) =>
-      prev.map((m) => {
-        if (m.id === id) {
-          const nextStatus = m.status === 'Completed' ? 'In Progress' : 'Completed';
-          return {
-            ...m,
-            status: nextStatus,
-            completed_at: nextStatus === 'Completed' ? new Date().toISOString() : null,
-          };
-        }
-        return m;
-      })
+      prev.map((m) =>
+        m.id === id
+          ? {
+              ...m,
+              status: nextStatus,
+              completed_at: completedAt,
+            }
+          : m
+      )
     );
+
+    const client = getSupabase();
+    if (client) {
+      try {
+        await client.from('milestones').update({
+          status: nextStatus,
+          completed_at: completedAt,
+        }).eq('id', id);
+      } catch (err) {
+        console.error('Error toggling milestone in Supabase:', err);
+      }
+    }
   };
 
-  // Note methods
-  const addNote = (n: Partial<Note>) => {
+  // DYNAMIC NOTE ACTIONS
+  const addNote = async (n: Partial<Note>) => {
     const item: Note = {
       id: `not_${Date.now()}`,
       user_id: user.id,
@@ -781,24 +1157,48 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
       updated_at: new Date().toISOString(),
     };
     setNotes((prev) => [item, ...prev]);
+
+    const client = getSupabase();
+    if (client) {
+      try {
+        await client.from('notes').insert([item]);
+      } catch (err) {
+        console.error('Error inserting note to Supabase:', err);
+      }
+    }
   };
 
-  const updateNote = (id: string, updates: Partial<Note>) => {
+  const updateNote = async (id: string, updates: Partial<Note>) => {
     setNotes((prev) =>
       prev.map((n) => (n.id === id ? { ...n, ...updates, updated_at: new Date().toISOString() } : n))
     );
+    const client = getSupabase();
+    if (client) {
+      try {
+        await client.from('notes').update(updates).eq('id', id);
+      } catch (err) {
+        console.error('Error updating note in Supabase:', err);
+      }
+    }
   };
 
-  const deleteNote = (id: string) => {
+  const deleteNote = async (id: string) => {
     setNotes((prev) => prev.filter((n) => n.id !== id));
+    const client = getSupabase();
+    if (client) {
+      try {
+        await client.from('notes').delete().eq('id', id);
+      } catch (err) {
+        console.error('Error deleting note in Supabase:', err);
+      }
+    }
   };
 
-  // Notifications calculation
+  // DYNAMIC NOTIFICATIONS
   const notifications: NotificationItem[] = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
     const items: NotificationItem[] = [];
 
-    // Tasks due today
     tasks
       .filter((t) => t.due_date === today && t.status !== 'Done')
       .forEach((t) => {
@@ -813,7 +1213,6 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
         });
       });
 
-    // Overdue tasks
     tasks
       .filter((t) => t.due_date < today && t.status !== 'Done')
       .forEach((t) => {
@@ -828,7 +1227,6 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
         });
       });
 
-    // Follow-ups due
     followups
       .filter((f) => f.followup_date <= today && f.status !== 'Completed')
       .forEach((f) => {
@@ -843,7 +1241,6 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
         });
       });
 
-    // Blockers
     issues
       .filter((i) => i.status !== 'Resolved' && i.status !== 'Closed')
       .forEach((i) => {
@@ -858,7 +1255,6 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
         });
       });
 
-    // Meetings today
     meetings
       .filter((m) => m.meeting_date === today)
       .forEach((m) => {
@@ -877,7 +1273,6 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
   }, [tasks, followups, issues, meetings]);
 
   const [dismissedNotifications, setDismissedNotifications] = useState<string[]>([]);
-
   const activeNotifications = useMemo(() => {
     return notifications.filter((n) => !dismissedNotifications.includes(n.id));
   }, [notifications, dismissedNotifications]);
@@ -890,7 +1285,7 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
     setDismissedNotifications(notifications.map((n) => n.id));
   };
 
-  // Reset to seed data
+  // SYSTEM DATA METHODS
   const resetToSeedData = () => {
     localStorage.removeItem(STORAGE_KEY);
     setUser(CURRENT_USER);
@@ -944,17 +1339,6 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Supabase sync capability if configured
-  const syncWithSupabase = async () => {
-    if (!supabase || !isSupabaseConfigured) return;
-    try {
-      // Sync logic with Supabase database tables
-      console.log('Syncing data with Supabase...');
-    } catch (e) {
-      console.error('Supabase sync error', e);
-    }
-  };
-
   return (
     <WorkOSContext.Provider
       value={{
@@ -981,6 +1365,7 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
         isQuickAddOpen,
         setIsQuickAddOpen,
         quickAddType,
+        quickAddProjectId,
         openQuickAdd,
         closeQuickAdd,
         quickUpdateTask,
@@ -989,6 +1374,8 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
         historyTask,
         openHistory,
         closeHistory,
+        isAuthModalOpen,
+        setIsAuthModalOpen,
         addTask,
         updateTask,
         deleteTask,
@@ -1007,6 +1394,7 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
         updateMeeting,
         deleteMeeting,
         convertMeetingActionItemToTask,
+        addMeetingActionItem,
         addIssue,
         updateIssue,
         deleteIssue,
@@ -1017,6 +1405,7 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
         addAchievement,
         deleteAchievement,
         addMilestone,
+        deleteMilestone,
         toggleMilestoneStatus,
         addNote,
         updateNote,
@@ -1026,8 +1415,15 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
         resetToSeedData,
         exportDataJSON,
         importDataJSON,
-        isSupabaseMode: isSupabaseConfigured,
+        isSupabaseConnected,
+        isSyncing,
+        lastSyncedAt,
+        connectSupabase,
+        disconnectSupabase,
         syncWithSupabase,
+        signInWithPassword,
+        signUpWithPassword,
+        signOutUser,
       }}
     >
       {children}

@@ -21,6 +21,7 @@ export default function MeetingsView() {
     projects,
     deleteMeeting,
     convertMeetingActionItemToTask,
+    addMeetingActionItem,
     openQuickAdd,
     setActiveTab,
   } = useWorkOS();
@@ -180,11 +181,14 @@ export default function MeetingsView() {
                 )}
 
                 {/* Action Items with "Convert to Task" button (Section 15) */}
-                {mtg.action_items && mtg.action_items.length > 0 && (
-                  <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center justify-between">
                     <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                      Action Items
+                      Action Items ({mtg.action_items?.length || 0})
                     </span>
+                  </div>
+
+                  {mtg.action_items && mtg.action_items.length > 0 && (
                     <div className="space-y-2">
                       {mtg.action_items.map((item) => (
                         <div
@@ -222,8 +226,43 @@ export default function MeetingsView() {
                         </div>
                       ))}
                     </div>
-                  </div>
-                )}
+                  )}
+
+                  {/* Inline Add Action Item */}
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const form = e.currentTarget;
+                      const textInput = form.elements.namedItem('actionText') as HTMLInputElement;
+                      const assignedInput = form.elements.namedItem('assignedTo') as HTMLInputElement;
+                      if (textInput.value.trim()) {
+                        addMeetingActionItem(mtg.id, textInput.value.trim(), assignedInput.value.trim() || undefined);
+                        textInput.value = '';
+                        assignedInput.value = '';
+                      }
+                    }}
+                    className="flex flex-wrap gap-2 pt-1"
+                  >
+                    <input
+                      name="actionText"
+                      type="text"
+                      placeholder="Add an action item..."
+                      className="flex-1 min-w-[200px] px-3 py-1.5 text-xs rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                    />
+                    <input
+                      name="assignedTo"
+                      type="text"
+                      placeholder="Assignee (e.g. Deepika)"
+                      className="w-36 px-3 py-1.5 text-xs rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                    />
+                    <button
+                      type="submit"
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200"
+                    >
+                      + Action Item
+                    </button>
+                  </form>
+                </div>
               </div>
             );
           })
