@@ -223,11 +223,7 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
             </p>
           </div>
           <button
-            onClick={() => {
-              if (confirm('Sign out of My Work OS?')) {
-                signOutUser();
-              }
-            }}
+            onClick={() => signOutUser()}
             title="Sign out"
             className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 transition-colors"
           >
