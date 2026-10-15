@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useWorkOS } from '@/context/WorkOSContext';
 import { Project, ProjectStatus, Priority } from '@/types';
 import {
@@ -53,6 +53,23 @@ export default function ProjectsView() {
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(new Date(Date.now() + 60 * 86400000).toISOString().split('T')[0]);
   const [tags, setTags] = useState('');
+
+  // Reset create project fields
+  const resetCreateForm = () => {
+    setName('');
+    setDescription('');
+    setPriority('High');
+    setStatus('Active');
+    setStartDate(new Date().toISOString().split('T')[0]);
+    setEndDate(new Date(Date.now() + 60 * 86400000).toISOString().split('T')[0]);
+    setTags('');
+  };
+
+  useEffect(() => {
+    if (isCreateOpen) {
+      resetCreateForm();
+    }
+  }, [isCreateOpen]);
 
   // Project Detail Tab state
   const [detailTab, setDetailTab] = useState<

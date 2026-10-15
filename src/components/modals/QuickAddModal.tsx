@@ -43,19 +43,6 @@ export default function QuickAddModal() {
     'task' | 'followup' | 'meeting' | 'issue' | 'note' | 'achievement'
   >('task');
 
-  useEffect(() => {
-    if (quickAddType) {
-      setActiveTab(quickAddType);
-    }
-    if (quickAddProjectId) {
-      setTaskProjectId(quickAddProjectId);
-      setFolProjectId(quickAddProjectId);
-      setMtgProjectId(quickAddProjectId);
-      setIssProjectId(quickAddProjectId);
-      setNoteProjectId(quickAddProjectId);
-    }
-  }, [quickAddType, quickAddProjectId]);
-
   // Task form state
   const [taskName, setTaskName] = useState('');
   const [taskDescription, setTaskDescription] = useState('');
@@ -117,6 +104,92 @@ export default function QuickAddModal() {
   const [achImpact, setAchImpact] = useState('');
   const [achCategory, setAchCategory] = useState<AchievementCategory>('Delivery');
 
+  // Helper reset functions
+  const resetTaskForm = () => {
+    setTaskName('');
+    setTaskDescription('');
+    setTaskProjectId(quickAddProjectId || projects[0]?.id || '');
+    setTaskType('Development');
+    setTaskPriority('High');
+    setTaskStatus('To Do');
+    setTaskProgress(0);
+    setTaskStartDate(new Date().toISOString().split('T')[0]);
+    setTaskDueDate(new Date().toISOString().split('T')[0]);
+    setTaskNextAction('');
+    setTaskTags('');
+    setTaskNotes('');
+    setIsRecurring(false);
+    setRecurrenceRule('');
+  };
+
+  const resetFollowupForm = () => {
+    setFolPerson('');
+    setFolTopic('');
+    setFolProjectId(quickAddProjectId || projects[0]?.id || '');
+    setFolLastDiscussion('');
+    setFolExpectedAction('');
+    setFolDate(new Date().toISOString().split('T')[0]);
+    setFolStatus('Pending');
+    setFolNotes('');
+  };
+
+  const resetMeetingForm = () => {
+    setMtgTitle('');
+    setMtgDate(new Date().toISOString().split('T')[0]);
+    setMtgStartTime('10:00 AM');
+    setMtgEndTime('10:45 AM');
+    setMtgProjectId(quickAddProjectId || projects[0]?.id || '');
+    setMtgParticipants('Manash, Team');
+    setMtgAgenda('');
+    setMtgDecisions('');
+    setMtgActionItem('');
+  };
+
+  const resetIssueForm = () => {
+    setIssTitle('');
+    setIssDescription('');
+    setIssProjectId(quickAddProjectId || projects[0]?.id || '');
+    setIssTaskId('');
+    setIssSeverity('High');
+    setIssStatus('Open');
+    setIssOwner('Manash');
+    setIssExpectedResolution(new Date().toISOString().split('T')[0]);
+  };
+
+  const resetNoteForm = () => {
+    setNoteTitle('');
+    setNoteContent('');
+    setNoteProjectId(quickAddProjectId || projects[0]?.id || '');
+    setNoteTags('');
+  };
+
+  const resetAchievementForm = () => {
+    setAchTitle('');
+    setAchProjectId(quickAddProjectId || projects[0]?.id || '');
+    setAchDate(new Date().toISOString().split('T')[0]);
+    setAchDescription('');
+    setAchImpact('');
+    setAchCategory('Delivery');
+  };
+
+  const resetAllForms = () => {
+    resetTaskForm();
+    resetFollowupForm();
+    resetMeetingForm();
+    resetIssueForm();
+    resetNoteForm();
+    resetAchievementForm();
+  };
+
+  useEffect(() => {
+    if (isQuickAddOpen) {
+      if (quickAddType) {
+        setActiveTab(quickAddType);
+      }
+      resetAllForms();
+    }
+  }, [isQuickAddOpen, quickAddType, quickAddProjectId]);
+
   if (!isQuickAddOpen) return null;
 
   const handleTaskSubmit = (e: React.FormEvent) => {
@@ -138,6 +211,7 @@ export default function QuickAddModal() {
       tags: taskTags ? taskTags.split(',').map((t) => t.trim()) : [],
       notes: taskNotes,
     });
+    resetTaskForm();
     closeQuickAdd();
   };
 
@@ -154,6 +228,7 @@ export default function QuickAddModal() {
       status: folStatus,
       notes: folNotes,
     });
+    resetFollowupForm();
     closeQuickAdd();
   };
 
@@ -173,6 +248,7 @@ export default function QuickAddModal() {
         ? [{ id: `act_${Date.now()}`, text: mtgActionItem, assigned_to: 'Team' }]
         : [],
     });
+    resetMeetingForm();
     closeQuickAdd();
   };
 
@@ -189,6 +265,7 @@ export default function QuickAddModal() {
       owner: issOwner,
       expected_resolution: issExpectedResolution,
     });
+    resetIssueForm();
     closeQuickAdd();
   };
 
@@ -201,6 +278,7 @@ export default function QuickAddModal() {
       project_id: noteProjectId || undefined,
       tags: noteTags ? noteTags.split(',').map((t) => t.trim()) : [],
     });
+    resetNoteForm();
     closeQuickAdd();
   };
 
@@ -215,6 +293,7 @@ export default function QuickAddModal() {
       impact: achImpact,
       category: achCategory,
     });
+    resetAchievementForm();
     closeQuickAdd();
   };
 
