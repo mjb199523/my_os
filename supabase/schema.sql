@@ -205,18 +205,32 @@ ALTER TABLE public.notes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.milestones ENABLE ROW LEVEL SECURITY;
 
 -- POLICIES
-CREATE POLICY "Users can manage own record" ON public.users FOR ALL USING (auth.uid() = id);
-CREATE POLICY "Users can manage own projects" ON public.projects FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY "Users can manage own tasks" ON public.tasks FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY "Users can manage own task updates" ON public.task_updates FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY "Users can manage own followups" ON public.followups FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY "Users can manage own meetings" ON public.meetings FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY "Users can manage own issues" ON public.issues FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY "Users can manage own daily logs" ON public.daily_logs FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY "Users can manage own achievements" ON public.achievements FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY "Users can manage own notes" ON public.notes FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY "Users can view milestones for own projects" ON public.milestones FOR ALL USING (
-  EXISTS (SELECT 1 FROM public.projects WHERE projects.id = milestones.project_id AND projects.user_id = auth.uid())
+-- Helper function to check if user is Admin
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.users 
+    WHERE users.id = auth.uid() 
+    AND users.system_role = 'Admin'
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE POLICY "Admins manage all, users manage own profile" ON public.users FOR ALL USING (auth.uid() = id OR public.is_admin() OR auth.role() = 'anon') WITH CHECK (auth.uid() = id OR public.is_admin() OR auth.role() = 'anon');
+CREATE POLICY "Admins manage all projects, users manage own" ON public.projects FOR ALL USING (auth.uid() = user_id OR public.is_admin() OR auth.role() = 'anon') WITH CHECK (auth.uid() = user_id OR public.is_admin() OR auth.role() = 'anon');
+CREATE POLICY "Admins manage all tasks, users manage own" ON public.tasks FOR ALL USING (auth.uid() = user_id OR public.is_admin() OR auth.role() = 'anon') WITH CHECK (auth.uid() = user_id OR public.is_admin() OR auth.role() = 'anon');
+CREATE POLICY "Admins manage all task updates, users manage own" ON public.task_updates FOR ALL USING (auth.uid() = user_id OR public.is_admin() OR auth.role() = 'anon') WITH CHECK (auth.uid() = user_id OR public.is_admin() OR auth.role() = 'anon');
+CREATE POLICY "Admins manage all followups, users manage own" ON public.followups FOR ALL USING (auth.uid() = user_id OR public.is_admin() OR auth.role() = 'anon') WITH CHECK (auth.uid() = user_id OR public.is_admin() OR auth.role() = 'anon');
+CREATE POLICY "Admins manage all meetings, users manage own" ON public.meetings FOR ALL USING (auth.uid() = user_id OR public.is_admin() OR auth.role() = 'anon') WITH CHECK (auth.uid() = user_id OR public.is_admin() OR auth.role() = 'anon');
+CREATE POLICY "Admins manage all issues, users manage own" ON public.issues FOR ALL USING (auth.uid() = user_id OR public.is_admin() OR auth.role() = 'anon') WITH CHECK (auth.uid() = user_id OR public.is_admin() OR auth.role() = 'anon');
+CREATE POLICY "Admins manage all daily logs, users manage own" ON public.daily_logs FOR ALL USING (auth.uid() = user_id OR public.is_admin() OR auth.role() = 'anon') WITH CHECK (auth.uid() = user_id OR public.is_admin() OR auth.role() = 'anon');
+CREATE POLICY "Admins manage all achievements, users manage own" ON public.achievements FOR ALL USING (auth.uid() = user_id OR public.is_admin() OR auth.role() = 'anon') WITH CHECK (auth.uid() = user_id OR public.is_admin() OR auth.role() = 'anon');
+CREATE POLICY "Admins manage all notes, users manage own" ON public.notes FOR ALL USING (auth.uid() = user_id OR public.is_admin() OR auth.role() = 'anon') WITH CHECK (auth.uid() = user_id OR public.is_admin() OR auth.role() = 'anon');
+CREATE POLICY "Admins manage all milestones, users manage own" ON public.milestones FOR ALL USING (
+  EXISTS (SELECT 1 FROM public.projects WHERE projects.id = milestones.project_id AND (projects.user_id = auth.uid() OR public.is_admin() OR auth.role() = 'anon'))
+) WITH CHECK (
+  EXISTS (SELECT 1 FROM public.projects WHERE projects.id = milestones.project_id AND (projects.user_id = auth.uid() OR public.is_admin() OR auth.role() = 'anon'))
 );
 
 -- 12. ADMIN MESSAGES TABLE (Unidirectional Notifications from Admin to Users)

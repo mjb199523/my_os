@@ -31,6 +31,10 @@ export default function QuickAddModal() {
     openQuickAdd,
     projects,
     tasks,
+    user,
+    users,
+    isAdmin,
+    adminUserFilter,
     addTask,
     addFollowup,
     addMeeting,
@@ -42,6 +46,8 @@ export default function QuickAddModal() {
   const [activeTab, setActiveTab] = useState<
     'task' | 'followup' | 'meeting' | 'issue' | 'note' | 'achievement'
   >('task');
+
+  const [targetUserId, setTargetUserId] = useState<string>(user.id);
 
   // Task form state
   const [taskName, setTaskName] = useState('');
@@ -186,9 +192,10 @@ export default function QuickAddModal() {
       if (quickAddType) {
         setActiveTab(quickAddType);
       }
+      setTargetUserId(adminUserFilter !== 'all' ? adminUserFilter : user.id);
       resetAllForms();
     }
-  }, [isQuickAddOpen, quickAddType, quickAddProjectId]);
+  }, [isQuickAddOpen, quickAddType, quickAddProjectId, adminUserFilter, user.id]);
 
   if (!isQuickAddOpen) return null;
 
@@ -196,6 +203,7 @@ export default function QuickAddModal() {
     e.preventDefault();
     if (!taskName.trim()) return;
     addTask({
+      user_id: targetUserId,
       title: taskName.trim(),
       description: taskDescription,
       project_id: taskProjectId || projects[0]?.id,
@@ -219,6 +227,7 @@ export default function QuickAddModal() {
     e.preventDefault();
     if (!folPerson.trim() || !folTopic.trim()) return;
     addFollowup({
+      user_id: targetUserId,
       person: folPerson.trim(),
       topic: folTopic.trim(),
       project_id: folProjectId || undefined,
@@ -236,6 +245,7 @@ export default function QuickAddModal() {
     e.preventDefault();
     if (!mtgTitle.trim()) return;
     addMeeting({
+      user_id: targetUserId,
       title: mtgTitle.trim(),
       meeting_date: mtgDate,
       start_time: mtgStartTime,
@@ -256,6 +266,7 @@ export default function QuickAddModal() {
     e.preventDefault();
     if (!issTitle.trim()) return;
     addIssue({
+      user_id: targetUserId,
       title: issTitle.trim(),
       description: issDescription,
       project_id: issProjectId || undefined,
@@ -273,6 +284,7 @@ export default function QuickAddModal() {
     e.preventDefault();
     if (!noteTitle.trim()) return;
     addNote({
+      user_id: targetUserId,
       title: noteTitle.trim(),
       content: noteContent,
       project_id: noteProjectId || undefined,
@@ -286,6 +298,7 @@ export default function QuickAddModal() {
     e.preventDefault();
     if (!achTitle.trim()) return;
     addAchievement({
+      user_id: targetUserId,
       title: achTitle.trim(),
       project_id: achProjectId || undefined,
       achievement_date: achDate,
@@ -351,6 +364,26 @@ export default function QuickAddModal() {
 
         {/* Form Container */}
         <div className="p-6 overflow-y-auto flex-1">
+          {/* Admin User Selector: choose who to create for */}
+          {isAdmin && users.length > 1 && (
+            <div className="mb-5 p-3 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200/60 dark:border-indigo-800/60 flex items-center justify-between text-xs">
+              <span className="font-semibold text-indigo-900 dark:text-indigo-200 flex items-center space-x-1.5">
+                <span>👤 Creating on behalf of:</span>
+              </span>
+              <select
+                value={targetUserId}
+                onChange={(e) => setTargetUserId(e.target.value)}
+                className="bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-lg px-2.5 py-1 text-slate-800 dark:text-slate-100 font-semibold focus:outline-none"
+              >
+                {users.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name} ({u.system_role})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {/* TASK FORM */}
           {activeTab === 'task' && (
             <form onSubmit={handleTaskSubmit} className="space-y-4">

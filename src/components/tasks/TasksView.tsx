@@ -23,6 +23,8 @@ export default function TasksView() {
   const {
     tasks,
     projects,
+    users,
+    isAdmin,
     updateTaskStatus,
     deleteTask,
     openQuickUpdate,
@@ -37,6 +39,7 @@ export default function TasksView() {
   const [quickFilter, setQuickFilter] = useState<
     'all' | 'today' | 'upcoming' | 'overdue' | 'high_priority' | 'blocked' | 'waiting' | 'completed'
   >('all');
+  const [selectedUser, setSelectedUser] = useState<string>('all');
   const [selectedProject, setSelectedProject] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedPriority, setSelectedPriority] = useState<string>('all');
@@ -67,6 +70,9 @@ export default function TasksView() {
         if (quickFilter === 'blocked' && task.status !== 'Blocked') return false;
         if (quickFilter === 'waiting' && task.status !== 'Waiting') return false;
         if (quickFilter === 'completed' && task.status !== 'Done') return false;
+
+        // User filter for Admin
+        if (selectedUser !== 'all' && task.user_id !== selectedUser) return false;
 
         // Dropdowns
         if (selectedProject !== 'all' && task.project_id !== selectedProject) return false;
@@ -238,6 +244,22 @@ export default function TasksView() {
             ))}
           </select>
 
+          {/* Admin User Filter */}
+          {isAdmin && users.length > 1 && (
+            <select
+              value={selectedUser}
+              onChange={(e) => setSelectedUser(e.target.value)}
+              className="px-3 py-1.5 text-xs rounded-lg bg-indigo-50/70 dark:bg-slate-800/80 border border-indigo-200 dark:border-slate-700 text-slate-900 dark:text-white font-medium"
+            >
+              <option value="all">All Users ({users.length})</option>
+              {users.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name}
+                </option>
+              ))}
+            </select>
+          )}
+
           {/* Priority Dropdown */}
           <select
             value={selectedPriority}
@@ -293,6 +315,7 @@ export default function TasksView() {
               <thead>
                 <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   <th className="py-3 px-6">Task</th>
+                  {isAdmin && <th className="py-3 px-3">Owner</th>}
                   <th className="py-3 px-4">Project</th>
                   <th className="py-3 px-3">Type</th>
                   <th className="py-3 px-3">Priority</th>
@@ -307,6 +330,7 @@ export default function TasksView() {
                   const project = projects.find((p) => p.id === task.project_id);
                   const isDropdownOpen = openDropdownId === task.id;
                   const isOverdue = task.due_date < today && task.status !== 'Done';
+                  const taskOwner = users.find((u) => u.id === task.user_id);
 
                   return (
                     <tr
@@ -336,6 +360,15 @@ export default function TasksView() {
                           </div>
                         )}
                       </td>
+
+                      {/* Owner (Admin only) */}
+                      {isAdmin && (
+                        <td className="py-3.5 px-3 whitespace-nowrap">
+                          <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700">
+                            <span>👤 {taskOwner ? taskOwner.name.split(' ')[0] : 'User'}</span>
+                          </span>
+                        </td>
+                      )}
 
                       {/* Project */}
                       <td className="py-3.5 px-4 whitespace-nowrap">

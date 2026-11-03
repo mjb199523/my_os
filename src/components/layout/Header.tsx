@@ -22,6 +22,7 @@ import {
   Megaphone,
   Send,
   Mail,
+  Users,
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -31,6 +32,9 @@ interface HeaderProps {
 export default function Header({ onToggleSidebar }: HeaderProps) {
   const {
     user,
+    users,
+    adminUserFilter,
+    setAdminUserFilter,
     darkMode,
     toggleDarkMode,
     setIsSearchOpen,
@@ -179,6 +183,29 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
             <span>Note</span>
           </button>
         </div>
+
+        {/* Admin Data Scope Selector (Everyone vs Individual User) */}
+        {isAdmin && users.length > 1 && (
+          <div className="hidden md:flex items-center space-x-2 bg-indigo-50/70 dark:bg-indigo-950/40 px-2.5 py-1.5 rounded-lg border border-indigo-200/60 dark:border-indigo-800/60 text-xs">
+            <Users className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+            <span className="font-semibold text-indigo-900 dark:text-indigo-200">Scope:</span>
+            <select
+              value={adminUserFilter}
+              onChange={(e) => setAdminUserFilter(e.target.value)}
+              className="bg-transparent font-medium text-slate-800 dark:text-slate-100 focus:outline-none cursor-pointer"
+              title="Filter views across users"
+            >
+              <option value="all" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
+                👥 Everyone&apos;s Data ({users.length} users)
+              </option>
+              {users.map((u) => (
+                <option key={u.id} value={u.id} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
+                  👤 {u.name} ({u.system_role})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* Right side: Supabase Sync, Global Search, Notifications, Theme toggle */}
         <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">

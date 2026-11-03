@@ -144,6 +144,10 @@ interface WorkOSContextType {
   updateNote: (id: string, updates: Partial<Note>) => Promise<void>;
   deleteNote: (id: string) => Promise<void>;
 
+  // Admin user scope filter ('all' or specific user ID)
+  adminUserFilter: string;
+  setAdminUserFilter: (userIdOrAll: string) => void;
+
   // User profile & Portal user actions
   updateUser: (updates: Partial<User>) => Promise<void>;
   users: User[];
@@ -237,24 +241,126 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
   // Auth & Session state
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
 
-  // Data state (clean slate starting from 0)
+  // Data state: Master entities across all users
   const [users, setUsers] = useState<User[]>(INITIAL_USERS);
   const [user, setUser] = useState<User>(CURRENT_USER);
 
   const isAdmin = useMemo(() => {
     return user?.system_role === 'Admin';
   }, [user?.system_role]);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [taskUpdates, setTaskUpdates] = useState<TaskUpdate[]>([]);
-  const [followups, setFollowups] = useState<Followup[]>([]);
-  const [meetings, setMeetings] = useState<Meeting[]>([]);
-  const [issues, setIssues] = useState<Issue[]>([]);
-  const [dailyLogs, setDailyLogs] = useState<DailyLog[]>([]);
-  const [achievements, setAchievements] = useState<Achievement[]>([]);
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [milestones, setMilestones] = useState<Milestone[]>([]);
+
+  // Admin filter: 'all' to see everyone, or specific user ID to focus on one user
+  const [adminUserFilter, setAdminUserFilter] = useState<string>('all');
+
+  const [allProjects, setAllProjects] = useState<Project[]>(INITIAL_PROJECTS);
+  const [allTasks, setAllTasks] = useState<Task[]>(INITIAL_TASKS);
+  const [allTaskUpdates, setAllTaskUpdates] = useState<TaskUpdate[]>(INITIAL_TASK_UPDATES);
+  const [allFollowups, setAllFollowups] = useState<Followup[]>(INITIAL_FOLLOWUPS);
+  const [allMeetings, setAllMeetings] = useState<Meeting[]>(INITIAL_MEETINGS);
+  const [allIssues, setAllIssues] = useState<Issue[]>(INITIAL_ISSUES);
+  const [allDailyLogs, setAllDailyLogs] = useState<DailyLog[]>(INITIAL_DAILY_LOGS);
+  const [allAchievements, setAllAchievements] = useState<Achievement[]>(INITIAL_ACHIEVEMENTS);
+  const [allNotes, setAllNotes] = useState<Note[]>(INITIAL_NOTES);
+  const [allMilestones, setAllMilestones] = useState<Milestone[]>(INITIAL_MILESTONES);
   const [isInitialized, setIsInitialized] = useState(false);
+
+  // =========================================================================
+  // SCOPED VIEWS: Admin sees all (or filtered user); User sees ONLY own data
+  // =========================================================================
+
+  // Visible Projects
+  const projects = useMemo(() => {
+    if (isAdmin) {
+      if (adminUserFilter === 'all') return allProjects;
+      return allProjects.filter((p) => p.user_id === adminUserFilter);
+    }
+    return allProjects.filter((p) => p.user_id === user.id);
+  }, [allProjects, isAdmin, adminUserFilter, user.id]);
+
+  const visibleProjectIds = useMemo(() => new Set(projects.map((p) => p.id)), [projects]);
+
+  // Visible Tasks
+  const tasks = useMemo(() => {
+    if (isAdmin) {
+      if (adminUserFilter === 'all') return allTasks;
+      return allTasks.filter((t) => t.user_id === adminUserFilter);
+    }
+    return allTasks.filter((t) => t.user_id === user.id);
+  }, [allTasks, isAdmin, adminUserFilter, user.id]);
+
+  const visibleTaskIds = useMemo(() => new Set(tasks.map((t) => t.id)), [tasks]);
+
+  // Visible Task Updates
+  const taskUpdates = useMemo(() => {
+    if (isAdmin) {
+      if (adminUserFilter === 'all') return allTaskUpdates;
+      return allTaskUpdates.filter((u) => u.user_id === adminUserFilter || visibleTaskIds.has(u.task_id));
+    }
+    return allTaskUpdates.filter((u) => u.user_id === user.id || visibleTaskIds.has(u.task_id));
+  }, [allTaskUpdates, isAdmin, adminUserFilter, user.id, visibleTaskIds]);
+
+  // Visible Followups
+  const followups = useMemo(() => {
+    if (isAdmin) {
+      if (adminUserFilter === 'all') return allFollowups;
+      return allFollowups.filter((f) => f.user_id === adminUserFilter);
+    }
+    return allFollowups.filter((f) => f.user_id === user.id);
+  }, [allFollowups, isAdmin, adminUserFilter, user.id]);
+
+  // Visible Meetings
+  const meetings = useMemo(() => {
+    if (isAdmin) {
+      if (adminUserFilter === 'all') return allMeetings;
+      return allMeetings.filter((m) => m.user_id === adminUserFilter);
+    }
+    return allMeetings.filter((m) => m.user_id === user.id);
+  }, [allMeetings, isAdmin, adminUserFilter, user.id]);
+
+  // Visible Issues
+  const issues = useMemo(() => {
+    if (isAdmin) {
+      if (adminUserFilter === 'all') return allIssues;
+      return allIssues.filter((i) => i.user_id === adminUserFilter);
+    }
+    return allIssues.filter((i) => i.user_id === user.id);
+  }, [allIssues, isAdmin, adminUserFilter, user.id]);
+
+  // Visible Daily Logs
+  const dailyLogs = useMemo(() => {
+    if (isAdmin) {
+      if (adminUserFilter === 'all') return allDailyLogs;
+      return allDailyLogs.filter((d) => d.user_id === adminUserFilter);
+    }
+    return allDailyLogs.filter((d) => d.user_id === user.id);
+  }, [allDailyLogs, isAdmin, adminUserFilter, user.id]);
+
+  // Visible Achievements
+  const achievements = useMemo(() => {
+    if (isAdmin) {
+      if (adminUserFilter === 'all') return allAchievements;
+      return allAchievements.filter((a) => a.user_id === adminUserFilter);
+    }
+    return allAchievements.filter((a) => a.user_id === user.id);
+  }, [allAchievements, isAdmin, adminUserFilter, user.id]);
+
+  // Visible Notes
+  const notes = useMemo(() => {
+    if (isAdmin) {
+      if (adminUserFilter === 'all') return allNotes;
+      return allNotes.filter((n) => n.user_id === adminUserFilter);
+    }
+    return allNotes.filter((n) => n.user_id === user.id);
+  }, [allNotes, isAdmin, adminUserFilter, user.id]);
+
+  // Visible Milestones
+  const milestones = useMemo(() => {
+    if (isAdmin) {
+      if (adminUserFilter === 'all') return allMilestones;
+      return allMilestones.filter((m) => visibleProjectIds.has(m.project_id));
+    }
+    return allMilestones.filter((m) => visibleProjectIds.has(m.project_id));
+  }, [allMilestones, isAdmin, adminUserFilter, visibleProjectIds]);
 
   // 1. Initial Load & Setup
   useEffect(() => {
@@ -311,22 +417,118 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
             system_role: parsed.user.system_role || 'Admin',
           });
         }
-        if (Array.isArray(parsed.projects)) setProjects(parsed.projects);
-        if (Array.isArray(parsed.tasks)) setTasks(parsed.tasks);
-        if (Array.isArray(parsed.taskUpdates)) setTaskUpdates(parsed.taskUpdates);
-        if (Array.isArray(parsed.followups)) setFollowups(parsed.followups);
-        if (Array.isArray(parsed.meetings)) setMeetings(parsed.meetings);
-        if (Array.isArray(parsed.issues)) setIssues(parsed.issues);
-        if (Array.isArray(parsed.dailyLogs)) setDailyLogs(parsed.dailyLogs);
-        if (Array.isArray(parsed.achievements)) setAchievements(parsed.achievements);
-        if (Array.isArray(parsed.notes)) setNotes(parsed.notes);
-        if (Array.isArray(parsed.milestones)) setMilestones(parsed.milestones);
+
+        // Helper to load or merge seed data so new demo users always have seed items
+        if (Array.isArray(parsed.projects)) {
+          const existingIds = new Set(parsed.projects.map((p: Project) => p.id));
+          const merged = [...parsed.projects];
+          for (const ip of INITIAL_PROJECTS) {
+            if (!existingIds.has(ip.id)) merged.push(ip);
+          }
+          setAllProjects(merged);
+        } else {
+          setAllProjects(INITIAL_PROJECTS);
+        }
+
+        if (Array.isArray(parsed.tasks)) {
+          const existingIds = new Set(parsed.tasks.map((t: Task) => t.id));
+          const merged = [...parsed.tasks];
+          for (const it of INITIAL_TASKS) {
+            if (!existingIds.has(it.id)) merged.push(it);
+          }
+          setAllTasks(merged);
+        } else {
+          setAllTasks(INITIAL_TASKS);
+        }
+
+        if (Array.isArray(parsed.taskUpdates)) {
+          setAllTaskUpdates(parsed.taskUpdates);
+        } else {
+          setAllTaskUpdates(INITIAL_TASK_UPDATES);
+        }
+
+        if (Array.isArray(parsed.followups)) {
+          const existingIds = new Set(parsed.followups.map((f: Followup) => f.id));
+          const merged = [...parsed.followups];
+          for (const ifo of INITIAL_FOLLOWUPS) {
+            if (!existingIds.has(ifo.id)) merged.push(ifo);
+          }
+          setAllFollowups(merged);
+        } else {
+          setAllFollowups(INITIAL_FOLLOWUPS);
+        }
+
+        if (Array.isArray(parsed.meetings)) {
+          const existingIds = new Set(parsed.meetings.map((m: Meeting) => m.id));
+          const merged = [...parsed.meetings];
+          for (const im of INITIAL_MEETINGS) {
+            if (!existingIds.has(im.id)) merged.push(im);
+          }
+          setAllMeetings(merged);
+        } else {
+          setAllMeetings(INITIAL_MEETINGS);
+        }
+
+        if (Array.isArray(parsed.issues)) {
+          const existingIds = new Set(parsed.issues.map((i: Issue) => i.id));
+          const merged = [...parsed.issues];
+          for (const ii of INITIAL_ISSUES) {
+            if (!existingIds.has(ii.id)) merged.push(ii);
+          }
+          setAllIssues(merged);
+        } else {
+          setAllIssues(INITIAL_ISSUES);
+        }
+
+        if (Array.isArray(parsed.dailyLogs)) {
+          const existingIds = new Set(parsed.dailyLogs.map((d: DailyLog) => d.id));
+          const merged = [...parsed.dailyLogs];
+          for (const idl of INITIAL_DAILY_LOGS) {
+            if (!existingIds.has(idl.id)) merged.push(idl);
+          }
+          setAllDailyLogs(merged);
+        } else {
+          setAllDailyLogs(INITIAL_DAILY_LOGS);
+        }
+
+        if (Array.isArray(parsed.achievements)) {
+          const existingIds = new Set(parsed.achievements.map((a: Achievement) => a.id));
+          const merged = [...parsed.achievements];
+          for (const ia of INITIAL_ACHIEVEMENTS) {
+            if (!existingIds.has(ia.id)) merged.push(ia);
+          }
+          setAllAchievements(merged);
+        } else {
+          setAllAchievements(INITIAL_ACHIEVEMENTS);
+        }
+
+        if (Array.isArray(parsed.notes)) {
+          const existingIds = new Set(parsed.notes.map((n: Note) => n.id));
+          const merged = [...parsed.notes];
+          for (const inote of INITIAL_NOTES) {
+            if (!existingIds.has(inote.id)) merged.push(inote);
+          }
+          setAllNotes(merged);
+        } else {
+          setAllNotes(INITIAL_NOTES);
+        }
+
+        if (Array.isArray(parsed.milestones)) {
+          const existingIds = new Set(parsed.milestones.map((m: Milestone) => m.id));
+          const merged = [...parsed.milestones];
+          for (const im of INITIAL_MILESTONES) {
+            if (!existingIds.has(im.id)) merged.push(im);
+          }
+          setAllMilestones(merged);
+        } else {
+          setAllMilestones(INITIAL_MILESTONES);
+        }
+
         if (Array.isArray(parsed.adminMessages)) {
           setAdminMessages(parsed.adminMessages);
         } else {
           setAdminMessages(INITIAL_ADMIN_MESSAGES);
         }
-        if (parsed.user) setUser(parsed.user);
       }
     } catch (e) {
       console.error('Failed to load local storage data', e);
@@ -343,16 +545,16 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
         user,
         users,
         adminMessages,
-        projects,
-        tasks,
-        taskUpdates,
-        followups,
-        meetings,
-        issues,
-        dailyLogs,
-        achievements,
-        notes,
-        milestones,
+        projects: allProjects,
+        tasks: allTasks,
+        taskUpdates: allTaskUpdates,
+        followups: allFollowups,
+        meetings: allMeetings,
+        issues: allIssues,
+        dailyLogs: allDailyLogs,
+        achievements: allAchievements,
+        notes: allNotes,
+        milestones: allMilestones,
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
     } catch (e) {
@@ -363,16 +565,16 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
     user,
     users,
     adminMessages,
-    projects,
-    tasks,
-    taskUpdates,
-    followups,
-    meetings,
-    issues,
-    dailyLogs,
-    achievements,
-    notes,
-    milestones,
+    allProjects,
+    allTasks,
+    allTaskUpdates,
+    allFollowups,
+    allMeetings,
+    allIssues,
+    allDailyLogs,
+    allAchievements,
+    allNotes,
+    allMilestones,
   ]);
 
   // 3. Supabase Auth Listener & Cloud Sync
@@ -468,56 +670,56 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
     try {
       // 1. Fetch remote projects
       const { data: remoteProjects, error: prjErr } = await client.from('projects').select('*');
-      if (!prjErr) {
-        setProjects(remoteProjects || []);
+      if (!prjErr && remoteProjects) {
+        setAllProjects(remoteProjects);
       }
 
       // 2. Fetch remote tasks
       const { data: remoteTasks, error: tskErr } = await client.from('tasks').select('*');
-      if (!tskErr) {
-        setTasks(remoteTasks || []);
+      if (!tskErr && remoteTasks) {
+        setAllTasks(remoteTasks);
       }
 
       // 3. Fetch remote followups
       const { data: remoteFollowups, error: folErr } = await client.from('followups').select('*');
-      if (!folErr) {
-        setFollowups(remoteFollowups || []);
+      if (!folErr && remoteFollowups) {
+        setAllFollowups(remoteFollowups);
       }
 
       // 4. Fetch remote meetings
       const { data: remoteMeetings, error: mtgErr } = await client.from('meetings').select('*');
-      if (!mtgErr) {
-        setMeetings(remoteMeetings || []);
+      if (!mtgErr && remoteMeetings) {
+        setAllMeetings(remoteMeetings);
       }
 
       // 5. Fetch remote issues
       const { data: remoteIssues, error: issErr } = await client.from('issues').select('*');
-      if (!issErr) {
-        setIssues(remoteIssues || []);
+      if (!issErr && remoteIssues) {
+        setAllIssues(remoteIssues);
       }
 
       // 6. Fetch remote daily logs
       const { data: remoteLogs, error: logErr } = await client.from('daily_logs').select('*');
-      if (!logErr) {
-        setDailyLogs(remoteLogs || []);
+      if (!logErr && remoteLogs) {
+        setAllDailyLogs(remoteLogs);
       }
 
       // 7. Fetch remote achievements
       const { data: remoteAch, error: achErr } = await client.from('achievements').select('*');
-      if (!achErr) {
-        setAchievements(remoteAch || []);
+      if (!achErr && remoteAch) {
+        setAllAchievements(remoteAch);
       }
 
       // 8. Fetch remote milestones
       const { data: remoteMls, error: mlsErr } = await client.from('milestones').select('*');
-      if (!mlsErr) {
-        setMilestones(remoteMls || []);
+      if (!mlsErr && remoteMls) {
+        setAllMilestones(remoteMls);
       }
 
       // 9. Fetch remote notes
       const { data: remoteNotes, error: notErr } = await client.from('notes').select('*');
-      if (!notErr) {
-        setNotes(remoteNotes || []);
+      if (!notErr && remoteNotes) {
+        setAllNotes(remoteNotes);
       }
 
       // 10. Fetch remote users
@@ -620,6 +822,7 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
       }));
     }
     setIsAuthenticated(true);
+    setAdminUserFilter('all');
     setActiveTab('dashboard');
     localStorage.setItem('my_work_os_authenticated', 'true');
   };
@@ -650,6 +853,7 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
           setUser(cloudUser);
           setUsers((prev) => (prev.some((u) => u.id === cloudUser.id) ? prev : [...prev, cloudUser]));
           setIsAuthenticated(true);
+          setAdminUserFilter('all');
           setActiveTab('dashboard');
           localStorage.setItem('my_work_os_authenticated', 'true');
           localStorage.setItem('my_work_os_active_user_id', cloudUser.id);
@@ -678,6 +882,7 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
     setUser(updatedUser);
     setUsers((prev) => prev.map((u) => (u.id === updatedUser.id ? updatedUser : u)));
     setIsAuthenticated(true);
+    setAdminUserFilter('all');
     setActiveTab('dashboard');
     localStorage.setItem('my_work_os_authenticated', 'true');
     localStorage.setItem('my_work_os_active_user_id', updatedUser.id);
@@ -836,11 +1041,12 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
 
   // DYNAMIC TASK ACTIONS
   const addTask = async (newTask: Partial<Task>) => {
-    const id = `tsk_${Date.now()}`;
+    const targetUserId = isAdmin ? (newTask.user_id || user.id) : user.id;
+    const id = `tsk_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
     const task: Task = {
       id,
-      user_id: user.id,
-      project_id: newTask.project_id || projects[0]?.id || 'prj_assam_idp',
+      user_id: targetUserId,
+      project_id: newTask.project_id || projects[0]?.id || 'prj_default',
       title: newTask.title || 'Untitled Task',
       description: newTask.description || '',
       task_type: newTask.task_type || 'Development',
@@ -858,20 +1064,23 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
       updated_at: new Date().toISOString(),
     };
 
-    setTasks((prev) => [task, ...prev]);
+    setAllTasks((prev) => [task, ...prev]);
+
+    const targetUser = users.find((u) => u.id === targetUserId);
+    const authorName = targetUser ? targetUser.name.split(' ')[0] : user.name.split(' ')[0] || 'User';
 
     const updateItem: TaskUpdate = {
-      id: `upd_${Date.now()}`,
+      id: `upd_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       task_id: id,
-      user_id: user.id,
-      author_name: user.name.split(' ')[0] || 'User',
+      user_id: targetUserId,
+      author_name: authorName,
       status: task.status,
       progress: task.progress,
       update_text: `Task created: "${task.title}"`,
       next_action: task.next_action,
       created_at: new Date().toISOString(),
     };
-    setTaskUpdates((prev) => [updateItem, ...prev]);
+    setAllTaskUpdates((prev) => [updateItem, ...prev]);
 
     // Remote Supabase write
     const client = getSupabase();
@@ -886,10 +1095,17 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
   };
 
   const updateTask = async (id: string, updates: Partial<Task>) => {
+    const existing = allTasks.find((t) => t.id === id);
+    if (!existing) return;
+    if (!isAdmin && existing.user_id !== user.id) {
+      console.warn('Unauthorized: standard users cannot update another user task');
+      return;
+    }
+
     const nowIso = new Date().toISOString();
     let updatedTaskObj: Task | null = null;
 
-    setTasks((prev) =>
+    setAllTasks((prev) =>
       prev.map((t) => {
         if (t.id === id) {
           const updated = { ...t, ...updates, updated_at: nowIso };
@@ -915,7 +1131,16 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteTask = async (id: string) => {
-    setTasks((prev) => prev.filter((t) => t.id !== id));
+    const existing = allTasks.find((t) => t.id === id);
+    if (!existing) return;
+    if (!isAdmin && existing.user_id !== user.id) {
+      console.warn('Unauthorized: standard users cannot delete another user task');
+      return;
+    }
+
+    setAllTasks((prev) => prev.filter((t) => t.id !== id));
+    setAllTaskUpdates((prev) => prev.filter((u) => u.task_id !== id));
+
     const client = getSupabase();
     if (client) {
       try {
@@ -927,11 +1152,17 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
   };
 
   const updateTaskStatus = async (id: string, newStatus: TaskStatus) => {
+    const target = allTasks.find((t) => t.id === id);
+    if (!target) return;
+    if (!isAdmin && target.user_id !== user.id) {
+      console.warn('Unauthorized: standard users cannot update status of another user task');
+      return;
+    }
+
     const nowIso = new Date().toISOString();
     const isDone = newStatus === 'Done';
-    const target = tasks.find((t) => t.id === id);
 
-    setTasks((prev) =>
+    setAllTasks((prev) =>
       prev.map((t) => {
         if (t.id === id) {
           const updatedProgress = isDone ? 100 : t.status === 'Done' && !isDone ? 50 : t.progress;
@@ -947,32 +1178,30 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
       })
     );
 
-    if (target) {
-      const updateItem: TaskUpdate = {
-        id: `upd_${Date.now()}`,
-        task_id: id,
-        user_id: user.id,
-        author_name: user.name.split(' ')[0] || 'User',
-        status: newStatus,
-        progress: newStatus === 'Done' ? 100 : target.progress,
-        update_text: `Status changed from ${target.status} to ${newStatus}`,
-        created_at: nowIso,
-      };
-      setTaskUpdates((prev) => [updateItem, ...prev]);
+    const updateItem: TaskUpdate = {
+      id: `upd_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      task_id: id,
+      user_id: user.id,
+      author_name: user.name.split(' ')[0] || 'User',
+      status: newStatus,
+      progress: newStatus === 'Done' ? 100 : target.progress,
+      update_text: `Status changed from ${target.status} to ${newStatus}`,
+      created_at: nowIso,
+    };
+    setAllTaskUpdates((prev) => [updateItem, ...prev]);
 
-      const client = getSupabase();
-      if (client) {
-        try {
-          await client.from('tasks').update({
-            status: newStatus,
-            progress: isDone ? 100 : target.progress,
-            completed_at: isDone ? nowIso : null,
-            updated_at: nowIso,
-          }).eq('id', id);
-          await client.from('task_updates').insert([updateItem]);
-        } catch (err) {
-          console.error('Error updating task status in Supabase:', err);
-        }
+    const client = getSupabase();
+    if (client) {
+      try {
+        await client.from('tasks').update({
+          status: newStatus,
+          progress: isDone ? 100 : target.progress,
+          completed_at: isDone ? nowIso : null,
+          updated_at: nowIso,
+        }).eq('id', id);
+        await client.from('task_updates').insert([updateItem]);
+      } catch (err) {
+        console.error('Error updating task status in Supabase:', err);
       }
     }
   };
@@ -988,6 +1217,13 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
       notes?: string;
     }
   ) => {
+    const target = allTasks.find((t) => t.id === taskId);
+    if (!target) return;
+    if (!isAdmin && target.user_id !== user.id) {
+      console.warn('Unauthorized: standard users cannot submit updates for another user task');
+      return;
+    }
+
     await updateTask(taskId, {
       status: payload.status,
       progress: payload.progress,
@@ -996,7 +1232,7 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
     });
 
     const updateItem: TaskUpdate = {
-      id: `upd_${Date.now()}`,
+      id: `upd_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       task_id: taskId,
       user_id: user.id,
       author_name: user.name.split(' ')[0] || 'User',
@@ -1009,7 +1245,7 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
       created_at: new Date().toISOString(),
     };
 
-    setTaskUpdates((prev) => [updateItem, ...prev]);
+    setAllTaskUpdates((prev) => [updateItem, ...prev]);
 
     const client = getSupabase();
     if (client) {
@@ -1021,37 +1257,39 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
     }
 
     if (payload.nextFollowupDate && payload.nextAction) {
-      const task = tasks.find((t) => t.id === taskId);
       await addFollowup({
-        project_id: task?.project_id,
+        project_id: target.project_id,
+        user_id: target.user_id,
         person: 'Assigned Stakeholder',
         topic: payload.nextAction,
         last_discussion: new Date().toLocaleDateString('en-GB'),
         expected_action: payload.nextAction,
         followup_date: payload.nextFollowupDate,
         status: 'Pending',
-        notes: `Auto-created from task update: ${task?.title}`,
+        notes: `Auto-created from task update: ${target.title}`,
       });
     }
   };
 
   // DYNAMIC PROJECT ACTIONS
   const addProject = async (newProj: Partial<Project>) => {
+    const targetUserId = isAdmin ? (newProj.user_id || user.id) : user.id;
+    const assignedUser = users.find((u) => u.id === targetUserId);
     const proj: Project = {
-      id: `prj_${Date.now()}`,
-      user_id: user.id,
+      id: `prj_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      user_id: targetUserId,
       name: newProj.name || 'Untitled Project',
       description: newProj.description || '',
       status: newProj.status || 'Active',
       priority: newProj.priority || 'Medium',
       start_date: newProj.start_date || new Date().toISOString().split('T')[0],
       end_date: newProj.end_date || new Date().toISOString().split('T')[0],
-      owner: newProj.owner || user.name.split(' ')[0],
+      owner: newProj.owner || (assignedUser ? assignedUser.name.split(' ')[0] : user.name.split(' ')[0]),
       tags: newProj.tags || [],
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-    setProjects((prev) => [proj, ...prev]);
+    setAllProjects((prev) => [proj, ...prev]);
 
     const client = getSupabase();
     if (client) {
@@ -1064,7 +1302,14 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
   };
 
   const updateProject = async (id: string, updates: Partial<Project>) => {
-    setProjects((prev) =>
+    const target = allProjects.find((p) => p.id === id);
+    if (!target) return;
+    if (!isAdmin && target.user_id !== user.id) {
+      console.warn('Unauthorized: standard users cannot update another user project');
+      return;
+    }
+
+    setAllProjects((prev) =>
       prev.map((p) => (p.id === id ? { ...p, ...updates, updated_at: new Date().toISOString() } : p))
     );
     const client = getSupabase();
@@ -1078,7 +1323,17 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteProject = async (id: string) => {
-    setProjects((prev) => prev.filter((p) => p.id !== id));
+    const target = allProjects.find((p) => p.id === id);
+    if (!target) return;
+    if (!isAdmin && target.user_id !== user.id) {
+      console.warn('Unauthorized: standard users cannot delete another user project');
+      return;
+    }
+
+    setAllProjects((prev) => prev.filter((p) => p.id !== id));
+    setAllTasks((prev) => prev.filter((t) => t.project_id !== id));
+    setAllMilestones((prev) => prev.filter((m) => m.project_id !== id));
+
     const client = getSupabase();
     if (client) {
       try {
@@ -1090,7 +1345,7 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
   };
 
   const getProjectStats = (projectId: string) => {
-    const projTasks = tasks.filter((t) => t.project_id === projectId);
+    const projTasks = allTasks.filter((t) => t.project_id === projectId);
     const total = projTasks.length;
     const completed = projTasks.filter((t) => t.status === 'Done').length;
     const blocked = projTasks.filter((t) => t.status === 'Blocked').length;
@@ -1105,9 +1360,10 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
 
   // DYNAMIC FOLLOWUP ACTIONS
   const addFollowup = async (f: Partial<Followup>) => {
+    const targetUserId = isAdmin ? (f.user_id || user.id) : user.id;
     const item: Followup = {
-      id: `fol_${Date.now()}`,
-      user_id: user.id,
+      id: `fol_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      user_id: targetUserId,
       project_id: f.project_id,
       person: f.person || 'Stakeholder',
       topic: f.topic || 'General Follow-up',
@@ -1119,7 +1375,7 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-    setFollowups((prev) => [item, ...prev]);
+    setAllFollowups((prev) => [item, ...prev]);
 
     const client = getSupabase();
     if (client) {
@@ -1132,7 +1388,14 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
   };
 
   const updateFollowup = async (id: string, updates: Partial<Followup>) => {
-    setFollowups((prev) =>
+    const target = allFollowups.find((f) => f.id === id);
+    if (!target) return;
+    if (!isAdmin && target.user_id !== user.id) {
+      console.warn('Unauthorized: standard users cannot update another user followup');
+      return;
+    }
+
+    setAllFollowups((prev) =>
       prev.map((f) => (f.id === id ? { ...f, ...updates, updated_at: new Date().toISOString() } : f))
     );
     const client = getSupabase();
@@ -1146,7 +1409,14 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteFollowup = async (id: string) => {
-    setFollowups((prev) => prev.filter((f) => f.id !== id));
+    const target = allFollowups.find((f) => f.id === id);
+    if (!target) return;
+    if (!isAdmin && target.user_id !== user.id) {
+      console.warn('Unauthorized: standard users cannot delete another user followup');
+      return;
+    }
+
+    setAllFollowups((prev) => prev.filter((f) => f.id !== id));
     const client = getSupabase();
     if (client) {
       try {
@@ -1163,15 +1433,16 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
 
   // DYNAMIC MEETING ACTIONS
   const addMeeting = async (m: Partial<Meeting>) => {
+    const targetUserId = isAdmin ? (m.user_id || user.id) : user.id;
     const item: Meeting = {
-      id: `mtg_${Date.now()}`,
-      user_id: user.id,
+      id: `mtg_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      user_id: targetUserId,
       project_id: m.project_id,
       title: m.title || 'Untitled Meeting',
       meeting_date: m.meeting_date || new Date().toISOString().split('T')[0],
       start_time: m.start_time || '10:00 AM',
       end_time: m.end_time || '11:00 AM',
-      participants: m.participants || 'Team',
+      participants: m.participants || user.name,
       agenda: m.agenda || '',
       notes: m.notes || '',
       decisions: m.decisions || '',
@@ -1179,7 +1450,7 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-    setMeetings((prev) => [item, ...prev]);
+    setAllMeetings((prev) => [item, ...prev]);
 
     const client = getSupabase();
     if (client) {
@@ -1192,7 +1463,14 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
   };
 
   const updateMeeting = async (id: string, updates: Partial<Meeting>) => {
-    setMeetings((prev) =>
+    const target = allMeetings.find((m) => m.id === id);
+    if (!target) return;
+    if (!isAdmin && target.user_id !== user.id) {
+      console.warn('Unauthorized: standard users cannot update another user meeting');
+      return;
+    }
+
+    setAllMeetings((prev) =>
       prev.map((m) => (m.id === id ? { ...m, ...updates, updated_at: new Date().toISOString() } : m))
     );
     const client = getSupabase();
@@ -1206,7 +1484,14 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteMeeting = async (id: string) => {
-    setMeetings((prev) => prev.filter((m) => m.id !== id));
+    const target = allMeetings.find((m) => m.id === id);
+    if (!target) return;
+    if (!isAdmin && target.user_id !== user.id) {
+      console.warn('Unauthorized: standard users cannot delete another user meeting');
+      return;
+    }
+
+    setAllMeetings((prev) => prev.filter((m) => m.id !== id));
     const client = getSupabase();
     if (client) {
       try {
@@ -1218,23 +1503,26 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
   };
 
   const addMeetingActionItem = async (meetingId: string, text: string, assignedTo?: string) => {
-    const meeting = meetings.find((m) => m.id === meetingId);
+    const meeting = allMeetings.find((m) => m.id === meetingId);
     if (!meeting) return;
+    if (!isAdmin && meeting.user_id !== user.id) return;
     const newItem = { id: `act_${Date.now()}`, text, assigned_to: assignedTo || 'Team' };
     const updated = [...(meeting.action_items || []), newItem];
     await updateMeeting(meetingId, { action_items: updated });
   };
 
   const convertMeetingActionItemToTask = async (meetingId: string, actionItemId: string) => {
-    const meeting = meetings.find((m) => m.id === meetingId);
+    const meeting = allMeetings.find((m) => m.id === meetingId);
     if (!meeting || !meeting.action_items) return;
+    if (!isAdmin && meeting.user_id !== user.id) return;
     const actionItem = meeting.action_items.find((a) => a.id === actionItemId);
     if (!actionItem) return;
 
-    const taskId = `tsk_${Date.now()}`;
+    const taskId = `tsk_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
     await addTask({
       id: taskId,
-      project_id: meeting.project_id || projects[0]?.id || 'prj_assam_idp',
+      user_id: meeting.user_id,
+      project_id: meeting.project_id || projects[0]?.id || 'prj_default',
       title: actionItem.text,
       description: `Action item from meeting "${meeting.title}" on ${meeting.meeting_date}`,
       task_type: 'Development',
@@ -1252,21 +1540,23 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
 
   // DYNAMIC ISSUE ACTIONS
   const addIssue = async (i: Partial<Issue>) => {
+    const targetUserId = isAdmin ? (i.user_id || user.id) : user.id;
+    const assignedUser = users.find((u) => u.id === targetUserId);
     const item: Issue = {
-      id: `iss_${Date.now()}`,
-      user_id: user.id,
+      id: `iss_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      user_id: targetUserId,
       project_id: i.project_id,
       task_id: i.task_id,
       title: i.title || 'Untitled Issue',
       description: i.description || '',
       severity: i.severity || 'Medium',
       status: i.status || 'Open',
-      owner: i.owner || 'Manash',
+      owner: i.owner || (assignedUser ? assignedUser.name.split(' ')[0] : user.name.split(' ')[0]),
       expected_resolution: i.expected_resolution || '',
       notes: i.notes || '',
       created_at: new Date().toISOString(),
     };
-    setIssues((prev) => [item, ...prev]);
+    setAllIssues((prev) => [item, ...prev]);
 
     const client = getSupabase();
     if (client) {
@@ -1279,7 +1569,14 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
   };
 
   const updateIssue = async (id: string, updates: Partial<Issue>) => {
-    setIssues((prev) => prev.map((iss) => (iss.id === id ? { ...iss, ...updates } : iss)));
+    const target = allIssues.find((iss) => iss.id === id);
+    if (!target) return;
+    if (!isAdmin && target.user_id !== user.id) {
+      console.warn('Unauthorized: standard users cannot update another user issue');
+      return;
+    }
+
+    setAllIssues((prev) => prev.map((iss) => (iss.id === id ? { ...iss, ...updates } : iss)));
     const client = getSupabase();
     if (client) {
       try {
@@ -1291,7 +1588,14 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteIssue = async (id: string) => {
-    setIssues((prev) => prev.filter((i) => i.id !== id));
+    const target = allIssues.find((iss) => iss.id === id);
+    if (!target) return;
+    if (!isAdmin && target.user_id !== user.id) {
+      console.warn('Unauthorized: standard users cannot delete another user issue');
+      return;
+    }
+
+    setAllIssues((prev) => prev.filter((i) => i.id !== id));
     const client = getSupabase();
     if (client) {
       try {
@@ -1315,12 +1619,12 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
   };
 
   const saveDailyLog = async (log: Partial<DailyLog>) => {
-    const targetDate = log.log_date;
-    if (!targetDate) return;
+    const targetDate = log.log_date || new Date().toISOString().split('T')[0];
+    const targetUserId = isAdmin ? (log.user_id || (adminUserFilter !== 'all' ? adminUserFilter : user.id)) : user.id;
 
     let savedItem: DailyLog | null = null;
-    setDailyLogs((prev) => {
-      const index = prev.findIndex((l) => l.log_date === targetDate);
+    setAllDailyLogs((prev) => {
+      const index = prev.findIndex((l) => l.log_date === targetDate && l.user_id === targetUserId);
       if (index >= 0) {
         const copy = [...prev];
         const updated = {
@@ -1333,8 +1637,8 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
         return copy;
       } else {
         const newLog: DailyLog = {
-          id: `log_${targetDate.replace(/-/g, '_')}`,
-          user_id: user.id,
+          id: `log_${targetDate.replace(/-/g, '_')}_${targetUserId}`,
+          user_id: targetUserId,
           log_date: targetDate,
           worked_on: log.worked_on || '',
           completed: log.completed || '',
@@ -1408,9 +1712,10 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
 
   // DYNAMIC ACHIEVEMENT ACTIONS
   const addAchievement = async (a: Partial<Achievement>) => {
+    const targetUserId = isAdmin ? (a.user_id || user.id) : user.id;
     const item: Achievement = {
-      id: `ach_${Date.now()}`,
-      user_id: user.id,
+      id: `ach_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      user_id: targetUserId,
       project_id: a.project_id,
       title: a.title || 'Untitled Achievement',
       description: a.description || '',
@@ -1420,7 +1725,7 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
       tags: a.tags || [],
       created_at: new Date().toISOString(),
     };
-    setAchievements((prev) => [item, ...prev]);
+    setAllAchievements((prev) => [item, ...prev]);
 
     const client = getSupabase();
     if (client) {
@@ -1433,7 +1738,14 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteAchievement = async (id: string) => {
-    setAchievements((prev) => prev.filter((a) => a.id !== id));
+    const target = allAchievements.find((a) => a.id === id);
+    if (!target) return;
+    if (!isAdmin && target.user_id !== user.id) {
+      console.warn('Unauthorized: standard users cannot delete another user achievement');
+      return;
+    }
+
+    setAllAchievements((prev) => prev.filter((a) => a.id !== id));
     const client = getSupabase();
     if (client) {
       try {
@@ -1446,16 +1758,23 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
 
   // DYNAMIC MILESTONE ACTIONS
   const addMilestone = async (m: Partial<Milestone>) => {
+    const targetProjectId = m.project_id || projects[0]?.id || 'prj_default';
+    const project = allProjects.find((p) => p.id === targetProjectId);
+    if (!isAdmin && project?.user_id !== user.id) {
+      console.warn('Unauthorized: cannot add milestone to project owned by another user');
+      return;
+    }
+
     const item: Milestone = {
-      id: `mls_${Date.now()}`,
-      project_id: m.project_id || projects[0]?.id || 'prj_assam_idp',
+      id: `mls_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      project_id: targetProjectId,
       title: m.title || 'New Milestone',
       description: m.description || '',
       due_date: m.due_date || new Date().toISOString().split('T')[0],
       status: m.status || 'Pending',
       created_at: new Date().toISOString(),
     };
-    setMilestones((prev) => [item, ...prev]);
+    setAllMilestones((prev) => [item, ...prev]);
 
     const client = getSupabase();
     if (client) {
@@ -1468,7 +1787,15 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteMilestone = async (id: string) => {
-    setMilestones((prev) => prev.filter((m) => m.id !== id));
+    const target = allMilestones.find((m) => m.id === id);
+    if (!target) return;
+    const project = allProjects.find((p) => p.id === target.project_id);
+    if (!isAdmin && project?.user_id !== user.id) {
+      console.warn('Unauthorized: cannot delete milestone from project owned by another user');
+      return;
+    }
+
+    setAllMilestones((prev) => prev.filter((m) => m.id !== id));
     const client = getSupabase();
     if (client) {
       try {
@@ -1480,14 +1807,19 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
   };
 
   const toggleMilestoneStatus = async (id: string) => {
-    const target = milestones.find((m) => m.id === id);
+    const target = allMilestones.find((m) => m.id === id);
     if (!target) return;
+    const project = allProjects.find((p) => p.id === target.project_id);
+    if (!isAdmin && project?.user_id !== user.id) {
+      console.warn('Unauthorized: cannot toggle milestone from project owned by another user');
+      return;
+    }
 
     const nextStatus = target.status === 'Completed' ? 'In Progress' : 'Completed';
     const nowIso = new Date().toISOString();
     const completedAt = nextStatus === 'Completed' ? nowIso : null;
 
-    setMilestones((prev) =>
+    setAllMilestones((prev) =>
       prev.map((m) =>
         m.id === id
           ? {
@@ -1514,9 +1846,10 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
 
   // DYNAMIC NOTE ACTIONS
   const addNote = async (n: Partial<Note>) => {
+    const targetUserId = isAdmin ? (n.user_id || user.id) : user.id;
     const item: Note = {
-      id: `not_${Date.now()}`,
-      user_id: user.id,
+      id: `not_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      user_id: targetUserId,
       project_id: n.project_id,
       task_id: n.task_id,
       title: n.title || 'Untitled Note',
@@ -1525,7 +1858,7 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-    setNotes((prev) => [item, ...prev]);
+    setAllNotes((prev) => [item, ...prev]);
 
     const client = getSupabase();
     if (client) {
@@ -1538,7 +1871,14 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
   };
 
   const updateNote = async (id: string, updates: Partial<Note>) => {
-    setNotes((prev) =>
+    const target = allNotes.find((n) => n.id === id);
+    if (!target) return;
+    if (!isAdmin && target.user_id !== user.id) {
+      console.warn('Unauthorized: cannot update note owned by another user');
+      return;
+    }
+
+    setAllNotes((prev) =>
       prev.map((n) => (n.id === id ? { ...n, ...updates, updated_at: new Date().toISOString() } : n))
     );
     const client = getSupabase();
@@ -1552,7 +1892,14 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteNote = async (id: string) => {
-    setNotes((prev) => prev.filter((n) => n.id !== id));
+    const target = allNotes.find((n) => n.id === id);
+    if (!target) return;
+    if (!isAdmin && target.user_id !== user.id) {
+      console.warn('Unauthorized: cannot delete note owned by another user');
+      return;
+    }
+
+    setAllNotes((prev) => prev.filter((n) => n.id !== id));
     const client = getSupabase();
     if (client) {
       try {
@@ -1748,16 +2095,17 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
   // SYSTEM DATA METHODS
   const clearAllData = () => {
     localStorage.removeItem(STORAGE_KEY);
-    setProjects([]);
-    setTasks([]);
-    setTaskUpdates([]);
-    setFollowups([]);
-    setMeetings([]);
-    setIssues([]);
-    setDailyLogs([]);
-    setAchievements([]);
-    setMilestones([]);
-    setNotes([]);
+    setAllProjects([]);
+    setAllTasks([]);
+    setAllTaskUpdates([]);
+    setAllFollowups([]);
+    setAllMeetings([]);
+    setAllIssues([]);
+    setAllDailyLogs([]);
+    setAllAchievements([]);
+    setAllMilestones([]);
+    setAllNotes([]);
+    setAdminUserFilter('all');
   };
 
   const resetToSeedData = () => {
@@ -1765,16 +2113,17 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
     setUser(CURRENT_USER);
     setUsers(INITIAL_USERS);
     setAdminMessages(INITIAL_ADMIN_MESSAGES);
-    setProjects(INITIAL_PROJECTS);
-    setTasks(INITIAL_TASKS);
-    setTaskUpdates(INITIAL_TASK_UPDATES);
-    setFollowups(INITIAL_FOLLOWUPS);
-    setMeetings(INITIAL_MEETINGS);
-    setIssues(INITIAL_ISSUES);
-    setDailyLogs(INITIAL_DAILY_LOGS);
-    setAchievements(INITIAL_ACHIEVEMENTS);
-    setMilestones(INITIAL_MILESTONES);
-    setNotes(INITIAL_NOTES);
+    setAllProjects(INITIAL_PROJECTS);
+    setAllTasks(INITIAL_TASKS);
+    setAllTaskUpdates(INITIAL_TASK_UPDATES);
+    setAllFollowups(INITIAL_FOLLOWUPS);
+    setAllMeetings(INITIAL_MEETINGS);
+    setAllIssues(INITIAL_ISSUES);
+    setAllDailyLogs(INITIAL_DAILY_LOGS);
+    setAllAchievements(INITIAL_ACHIEVEMENTS);
+    setAllMilestones(INITIAL_MILESTONES);
+    setAllNotes(INITIAL_NOTES);
+    setAdminUserFilter('all');
   };
 
   const exportDataJSON = () => {
@@ -1783,16 +2132,16 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
       user,
       users,
       adminMessages,
-      projects,
-      tasks,
-      taskUpdates,
-      followups,
-      meetings,
-      issues,
-      dailyLogs,
-      achievements,
-      milestones,
-      notes,
+      projects: allProjects,
+      tasks: allTasks,
+      taskUpdates: allTaskUpdates,
+      followups: allFollowups,
+      meetings: allMeetings,
+      issues: allIssues,
+      dailyLogs: allDailyLogs,
+      achievements: allAchievements,
+      milestones: allMilestones,
+      notes: allNotes,
     };
     return JSON.stringify(payload, null, 2);
   };
@@ -1802,16 +2151,16 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
       const parsed = JSON.parse(jsonStr);
       if (Array.isArray(parsed.users)) setUsers(parsed.users);
       if (Array.isArray(parsed.adminMessages)) setAdminMessages(parsed.adminMessages);
-      if (parsed.projects) setProjects(parsed.projects);
-      if (parsed.tasks) setTasks(parsed.tasks);
-      if (parsed.taskUpdates) setTaskUpdates(parsed.taskUpdates);
-      if (parsed.followups) setFollowups(parsed.followups);
-      if (parsed.meetings) setMeetings(parsed.meetings);
-      if (parsed.issues) setIssues(parsed.issues);
-      if (parsed.dailyLogs) setDailyLogs(parsed.dailyLogs);
-      if (parsed.achievements) setAchievements(parsed.achievements);
-      if (parsed.milestones) setMilestones(parsed.milestones);
-      if (parsed.notes) setNotes(parsed.notes);
+      if (Array.isArray(parsed.projects)) setAllProjects(parsed.projects);
+      if (Array.isArray(parsed.tasks)) setAllTasks(parsed.tasks);
+      if (Array.isArray(parsed.taskUpdates)) setAllTaskUpdates(parsed.taskUpdates);
+      if (Array.isArray(parsed.followups)) setAllFollowups(parsed.followups);
+      if (Array.isArray(parsed.meetings)) setAllMeetings(parsed.meetings);
+      if (Array.isArray(parsed.issues)) setAllIssues(parsed.issues);
+      if (Array.isArray(parsed.dailyLogs)) setAllDailyLogs(parsed.dailyLogs);
+      if (Array.isArray(parsed.achievements)) setAllAchievements(parsed.achievements);
+      if (Array.isArray(parsed.milestones)) setAllMilestones(parsed.milestones);
+      if (Array.isArray(parsed.notes)) setAllNotes(parsed.notes);
       return true;
     } catch (e) {
       console.error('Invalid JSON import', e);
@@ -1833,6 +2182,8 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
         achievements,
         notes,
         milestones,
+        adminUserFilter,
+        setAdminUserFilter,
         notifications,
         unreadNotificationsCount,
         adminMessages,

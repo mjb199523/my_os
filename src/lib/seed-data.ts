@@ -128,6 +128,34 @@ export const INITIAL_PROJECTS: Project[] = [
     created_at: '2026-09-01T09:00:00Z',
     updated_at: '2026-10-09T08:00:00Z',
   },
+  {
+    id: 'prj_teacher_portal_ui',
+    user_id: 'usr_alex_002',
+    name: 'Teacher Portal UI Redesign',
+    description: 'Modernized responsive web portal for classroom educators with grading workflows and offline caching.',
+    status: 'Active',
+    priority: 'High',
+    start_date: '2026-08-15',
+    end_date: '2026-12-20',
+    owner: 'Alex Rivera',
+    tags: ['Frontend', 'React', 'Design System'],
+    created_at: '2026-08-15T09:00:00Z',
+    updated_at: '2026-10-09T10:00:00Z',
+  },
+  {
+    id: 'prj_mobile_app_v2',
+    user_id: 'usr_alex_002',
+    name: 'Mobile App 2.0',
+    description: 'Next-generation cross-platform mobile client for school headmasters and field inspectors.',
+    status: 'Planning',
+    priority: 'Medium',
+    start_date: '2026-09-10',
+    end_date: '2027-01-30',
+    owner: 'Alex Rivera',
+    tags: ['Mobile', 'React Native', 'Offline First'],
+    created_at: '2026-09-10T09:00:00Z',
+    updated_at: '2026-10-09T11:00:00Z',
+  },
 ];
 
 export const INITIAL_TASKS: Task[] = [
@@ -342,6 +370,57 @@ export const INITIAL_TASKS: Task[] = [
     tags: ['Performance', 'Frontend'],
     created_at: '2026-10-08T14:00:00Z',
     updated_at: '2026-10-09T11:45:00Z',
+  },
+  {
+    id: 'tsk_alex_001',
+    user_id: 'usr_alex_002',
+    project_id: 'prj_teacher_portal_ui',
+    title: 'Implement Tailwind Component Tokens',
+    description: 'Standardize color tokens, typography scales, and button states across teacher portal.',
+    task_type: 'Development',
+    priority: 'High',
+    status: 'In Progress',
+    progress: 75,
+    start_date: '2026-10-02',
+    due_date: '2026-10-10',
+    next_action: 'Submit pull request for review by lead designer',
+    tags: ['UI', 'Tokens', 'Tailwind'],
+    created_at: '2026-10-02T10:00:00Z',
+    updated_at: '2026-10-09T15:00:00Z',
+  },
+  {
+    id: 'tsk_alex_002',
+    user_id: 'usr_alex_002',
+    project_id: 'prj_teacher_portal_ui',
+    title: 'Accessibility & Screen Reader Audit',
+    description: 'Verify ARIA landmarks and WCAG 2.1 AA keyboard navigation compliance.',
+    task_type: 'Testing',
+    priority: 'Medium',
+    status: 'To Do',
+    progress: 20,
+    start_date: '2026-10-08',
+    due_date: '2026-10-14',
+    next_action: 'Run automated axe-core accessibility test suite',
+    tags: ['a11y', 'Testing'],
+    created_at: '2026-10-08T09:00:00Z',
+    updated_at: '2026-10-08T09:00:00Z',
+  },
+  {
+    id: 'tsk_alex_003',
+    user_id: 'usr_alex_002',
+    project_id: 'prj_mobile_app_v2',
+    title: 'SQLite Offline Sync Architecture',
+    description: 'Draft data synchronization RFC for handling offline conflict resolution.',
+    task_type: 'Analysis',
+    priority: 'Critical',
+    status: 'In Progress',
+    progress: 60,
+    start_date: '2026-10-05',
+    due_date: '2026-10-11',
+    next_action: 'Review prototype benchmarking with backend team',
+    tags: ['Architecture', 'Offline'],
+    created_at: '2026-10-05T11:00:00Z',
+    updated_at: '2026-10-09T14:00:00Z',
   }
 ];
 
@@ -475,6 +554,20 @@ export const INITIAL_FOLLOWUPS: Followup[] = [
     notes: 'Target for next week sprint kickoff.',
     created_at: '2026-10-08T16:30:00Z',
     updated_at: '2026-10-08T16:30:00Z',
+  },
+  {
+    id: 'fol_alex_001',
+    user_id: 'usr_alex_002',
+    project_id: 'prj_teacher_portal_ui',
+    person: 'Lead Designer (Sofia)',
+    topic: 'Design Token Palette Approval',
+    last_discussion: '08 Oct 2026, 3:00 PM',
+    expected_action: 'Confirm high-contrast color palette for primary CTA buttons',
+    followup_date: '2026-10-10',
+    status: 'Follow-up Due',
+    notes: 'Required before finalizing PR for component library.',
+    created_at: '2026-10-08T15:30:00Z',
+    updated_at: '2026-10-09T09:00:00Z',
   }
 ];
 
@@ -546,6 +639,24 @@ export const INITIAL_MEETINGS: Meeting[] = [
     agenda: 'Review usability test findings on Assamese voice prompts.',
     created_at: '2026-10-08T10:00:00Z',
     updated_at: '2026-10-08T10:00:00Z',
+  },
+  {
+    id: 'mtg_alex_001',
+    user_id: 'usr_alex_002',
+    project_id: 'prj_teacher_portal_ui',
+    title: 'Frontend Architecture & State Management Sync',
+    meeting_date: '2026-10-10',
+    start_time: '11:00 AM',
+    end_time: '11:45 AM',
+    participants: 'Alex Rivera, Lead Architect, UI Engineers',
+    agenda: 'Review React 19 server actions vs client caching for teacher grading matrix.',
+    notes: 'Agreed to implement optimistic UI updates for grade submissions.',
+    decisions: 'Adopt optimistic UI patterns with background sync queue.',
+    action_items: [
+      { id: 'act_alx_01', text: 'Alex to prepare prototype sandbox demo', assigned_to: 'Alex Rivera' }
+    ],
+    created_at: '2026-10-08T11:00:00Z',
+    updated_at: '2026-10-09T09:00:00Z',
   }
 ];
 
@@ -590,10 +701,39 @@ export const INITIAL_ISSUES: Issue[] = [
     expected_resolution: '2026-10-11',
     notes: 'Awaiting intermediate certificate re-installation by network vendor.',
     created_at: '2026-10-07T16:00:00Z',
+  },
+  {
+    id: 'iss_alex_001',
+    user_id: 'usr_alex_002',
+    project_id: 'prj_teacher_portal_ui',
+    task_id: 'tsk_alex_001',
+    title: 'CSS Flexbox overflow on mobile viewport',
+    description: 'Header action buttons get clipped on screens under 360px width in teacher grading grid.',
+    severity: 'Medium',
+    status: 'Open',
+    owner: 'Alex Rivera',
+    expected_resolution: '2026-10-12',
+    notes: 'Needs responsive flex-wrap and dropdown menu fallback.',
+    created_at: '2026-10-08T16:00:00Z',
   }
 ];
 
 export const INITIAL_DAILY_LOGS: DailyLog[] = [
+  {
+    id: 'log_alex_2026_10_09',
+    user_id: 'usr_alex_002',
+    log_date: '2026-10-09',
+    worked_on: '• Refactored teacher portal button variants to use design system tokens.\n• Tested keyboard accessibility and focus rings in Chrome & Firefox.\n• Initialized SQLite schema spike for React Native mobile client.',
+    completed: '• Tailwind token mapping complete for inputs, modal dialogues, and alert banners.\n• axe-core accessibility score improved from 82 to 96.',
+    pending: '• Pull request review from Sofia.\n• Finalizing mobile offline synchronization RFC.',
+    blocked: '• None today.',
+    decisions: '• Use CSS container queries for teacher table widgets instead of window resize listeners.',
+    people_coordinated: 'Sofia (Design Lead), Mobile Team',
+    summary: 'Made strong headway on teacher portal design system tokens and WCAG compliance.',
+    notes: 'Sync with lead architect tomorrow on offline database schema.',
+    created_at: '2026-10-09T09:00:00Z',
+    updated_at: '2026-10-09T16:30:00Z',
+  },
   {
     id: 'log_2026_10_09',
     user_id: CURRENT_USER.id,
@@ -662,10 +802,40 @@ export const INITIAL_ACHIEVEMENTS: Achievement[] = [
     achievement_date: '2026-09-15',
     tags: ['Big Data', 'Governance'],
     created_at: '2026-09-15T19:00:00Z',
+  },
+  {
+    id: 'ach_alex_001',
+    user_id: 'usr_alex_002',
+    project_id: 'prj_teacher_portal_ui',
+    title: 'Achieved 96% WCAG 2.1 AA Accessibility Score',
+    description: 'Led end-to-end accessibility refactor of teacher grading workflows.',
+    impact: 'Passed state audit compliance criteria for visually impaired educators with 0 critical violations.',
+    category: 'Technical',
+    achievement_date: '2026-10-09',
+    tags: ['a11y', 'Compliance', 'Frontend'],
+    created_at: '2026-10-09T16:00:00Z',
   }
 ];
 
 export const INITIAL_MILESTONES: Milestone[] = [
+  {
+    id: 'mls_alex_001',
+    project_id: 'prj_teacher_portal_ui',
+    title: 'Component Token Library Complete',
+    description: 'All atomic components aligned with Figma token system.',
+    due_date: '2026-10-20',
+    status: 'In Progress',
+    created_at: '2026-08-15T00:00:00Z',
+  },
+  {
+    id: 'mls_alex_002',
+    project_id: 'prj_mobile_app_v2',
+    title: 'Offline Sync Prototype Signed Off',
+    description: 'Prototype validation completed on Android & iOS simulators.',
+    due_date: '2026-11-15',
+    status: 'Pending',
+    created_at: '2026-09-10T00:00:00Z',
+  },
   {
     id: 'mls_001',
     project_id: 'prj_assam_idp',
@@ -744,5 +914,20 @@ export const INITIAL_NOTES: Note[] = [
     tags: ['Leadership', 'Talking Points', 'Strategy'],
     created_at: '2026-10-07T14:00:00Z',
     updated_at: '2026-10-09T08:30:00Z',
+  },
+  {
+    id: 'not_alex_001',
+    user_id: 'usr_alex_002',
+    project_id: 'prj_teacher_portal_ui',
+    task_id: 'tsk_alex_001',
+    title: 'Design System Architecture & RFC Notes',
+    content: `## Token Hierarchy RFC
+1. Global tokens: Raw values (colors, spacing, typography).
+2. Semantic tokens: Purpose-driven abstractions (primary-surface, text-subtle).
+3. Component tokens: Scoped overrides for buttons and data inputs.
+All components must consume semantic tokens exclusively to support high-contrast theme switching.`,
+    tags: ['Architecture', 'Design System', 'RFC'],
+    created_at: '2026-10-08T14:00:00Z',
+    updated_at: '2026-10-09T11:00:00Z',
   }
 ];

@@ -30,6 +30,9 @@ export default function ProjectsView() {
     followups,
     meetings,
     milestones,
+    user,
+    users,
+    isAdmin,
     selectedProjectId,
     setSelectedProjectId,
     getProjectStats,
@@ -45,6 +48,7 @@ export default function ProjectsView() {
 
   // Create Project modal state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [projectOwnerUserId, setProjectOwnerUserId] = useState<string>(user.id);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -85,13 +89,16 @@ export default function ProjectsView() {
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
+    const assignedUser = users.find((u) => u.id === projectOwnerUserId);
     await addProject({
+      user_id: isAdmin ? projectOwnerUserId : user.id,
       name: name.trim(),
       description,
       priority,
       status,
       start_date: startDate,
       end_date: endDate,
+      owner: assignedUser?.name || user.name,
       tags: tags ? tags.split(',').map((t) => t.trim()) : [],
     });
     setName('');
@@ -773,6 +780,25 @@ export default function ProjectsView() {
             </div>
 
             <form onSubmit={handleCreateProject} className="space-y-3 mt-4">
+              {isAdmin && users.length > 1 && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Project Owner / Assignee
+                  </label>
+                  <select
+                    value={projectOwnerUserId}
+                    onChange={(e) => setProjectOwnerUserId(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-medium"
+                  >
+                    {users.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.name} ({u.system_role})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Project Name
