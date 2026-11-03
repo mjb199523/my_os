@@ -21,6 +21,7 @@ import {
   Flame,
   FileEdit,
   History,
+  Megaphone,
 } from 'lucide-react';
 
 export default function DashboardView() {
@@ -31,6 +32,8 @@ export default function DashboardView() {
     meetings,
     issues,
     user,
+    notifications,
+    markNotificationRead,
     dailyLogs,
     saveDailyLog,
     generateTodaySummary,
@@ -148,8 +151,46 @@ export default function DashboardView() {
     'Cancelled',
   ];
 
+  const unreadAdminNotifications = notifications.filter((n) => !n.read);
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
+      {/* SECTION: UNREAD ADMIN BROADCAST BANNER */}
+      {unreadAdminNotifications.length > 0 && (
+        <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-indigo-50/90 to-blue-50/90 dark:from-indigo-950/40 dark:to-blue-950/40 border border-indigo-200/80 dark:border-indigo-900/60 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in slide-in-from-top-1 duration-200">
+          <div className="flex items-start space-x-3.5">
+            <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5">
+              <Megaphone className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/80 text-indigo-700 dark:text-indigo-300">
+                  {unreadAdminNotifications[0].priority || 'Announcement'}
+                </span>
+                <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                  {unreadAdminNotifications[0].title}
+                </span>
+                <span className="text-[10px] text-slate-400">
+                  • {unreadAdminNotifications[0].timestamp}
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">
+                {unreadAdminNotifications[0].message}
+              </p>
+              <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500 mt-1 block">
+                From: <span className="font-semibold text-slate-600 dark:text-slate-300">{unreadAdminNotifications[0].sender_name || 'Admin'}</span>
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={() => markNotificationRead(unreadAdminNotifications[0].id)}
+            className="self-end sm:self-auto px-3.5 py-1.5 rounded-xl bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 text-xs font-semibold shadow-2xs transition-all shrink-0 cursor-pointer"
+          >
+            Mark Read
+          </button>
+        </div>
+      )}
+
       {/* SECTION 6: SUMMARY CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: All Tasks */}

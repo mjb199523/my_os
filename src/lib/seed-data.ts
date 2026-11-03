@@ -9,17 +9,53 @@ import {
   Achievement, 
   Note, 
   Milestone,
-  User 
+  User,
+  AdminMessage 
 } from '@/types';
 
-export const CURRENT_USER: User = {
-  id: 'usr_manash_001',
-  name: 'Manashjyoti Barman',
-  email: 'manashjyoti.barman07@gmail.com',
-  avatar_url: '',
-  role: 'Product Delivery Manager',
-  created_at: '2026-01-01T00:00:00Z',
-};
+export const INITIAL_USERS: User[] = [
+  {
+    id: 'usr_manash_001',
+    name: 'Manashjyoti Barman',
+    email: 'manashjyoti.barman07@gmail.com',
+    avatar_url: '',
+    role: 'Product Delivery Manager',
+    system_role: 'Admin',
+    password: 'Manash123!@#',
+    status: 'Active',
+    created_at: '2026-01-01T00:00:00Z',
+    last_login_at: '2026-10-31T09:30:00Z',
+  },
+  {
+    id: 'usr_alex_002',
+    name: 'Alex Rivera',
+    email: 'alex.user@workos.com',
+    avatar_url: '',
+    role: 'Senior Software Engineer',
+    system_role: 'User',
+    password: 'User123!@#',
+    status: 'Active',
+    created_at: '2026-02-15T09:30:00Z',
+    last_login_at: '2026-10-30T14:20:00Z',
+  },
+];
+
+export const CURRENT_USER: User = INITIAL_USERS[0];
+
+export const INITIAL_ADMIN_MESSAGES: AdminMessage[] = [
+  {
+    id: 'msg_init_001',
+    sender_id: 'usr_manash_001',
+    sender_name: 'Manashjyoti Barman (Admin)',
+    target_user_id: 'all',
+    target_user_name: 'All Users',
+    title: 'Welcome to My Work OS',
+    message: 'Welcome to your unified workspace portal. Track tasks, manage project milestones, and stay aligned with company objectives.',
+    priority: 'Announcement',
+    created_at: '2026-10-31T09:00:00Z',
+    read_by: [],
+  },
+];
 
 export const INITIAL_PROJECTS: Project[] = [
   {

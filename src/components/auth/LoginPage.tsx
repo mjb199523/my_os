@@ -2,46 +2,66 @@
 
 import React, { useState } from 'react';
 import Logo from '@/components/common/Logo';
-import { Lock, Mail, Eye, EyeOff, AlertCircle, ArrowRight, ShieldCheck } from 'lucide-react';
+import { useWorkOS } from '@/context/WorkOSContext';
+import {
+  Lock,
+  Mail,
+  Eye,
+  EyeOff,
+  AlertCircle,
+  ArrowRight,
+  Shield,
+  UserCheck,
+  Sparkles,
+  Info,
+} from 'lucide-react';
 
 interface LoginPageProps {
-  onLoginSuccess: (email: string) => void;
+  onLoginSuccess?: (email: string) => void;
 }
 
 export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
+  const { loginWithCredentials } = useWorkOS();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [activePreset, setActivePreset] = useState<'admin' | 'user' | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setIsLoading(true);
 
-    const trimmedEmail = email.trim();
-
-    // Check credentials requested by user
-    if (
-      trimmedEmail.toLowerCase() === 'manashjyoti.barman07@gmail.com' &&
-      password === 'Manash123!@#'
-    ) {
-      setTimeout(() => {
-        setIsLoading(false);
-        onLoginSuccess(trimmedEmail);
-      }, 400);
-    } else {
-      setTimeout(() => {
-        setIsLoading(false);
-        setError('Invalid email or password. Please verify your credentials.');
-      }, 300);
+    try {
+      const result = await loginWithCredentials(email, password);
+      if (result.success) {
+        if (onLoginSuccess && result.user) {
+          onLoginSuccess(result.user.email);
+        }
+      } else {
+        setError(result.error || 'Invalid credentials. Please verify your email and password.');
+      }
+    } catch (err: any) {
+      setError(err?.message || 'An unexpected authentication error occurred.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleFillDemo = () => {
+  const handleFillAdmin = () => {
     setEmail('manashjyoti.barman07@gmail.com');
     setPassword('Manash123!@#');
+    setActivePreset('admin');
+    setError(null);
+  };
+
+  const handleFillUser = () => {
+    setEmail('alex.user@workos.com');
+    setPassword('User123!@#');
+    setActivePreset('user');
     setError(null);
   };
 
@@ -64,8 +84,57 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
                 Sign in to My Work OS
               </h1>
               <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-                Personal Command Centre &bull; High-Output Workspace
+                Role-Based Personal Command Centre &bull; High-Output Workspace
               </p>
+            </div>
+          </div>
+
+          {/* Quick Role Fill Presets */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 dark:text-slate-400 px-0.5">
+              <span className="flex items-center space-x-1">
+                <Sparkles className="w-3.5 h-3.5 text-blue-500" />
+                <span>Test Role Credentials</span>
+              </span>
+              <span className="text-[10px] text-slate-400 dark:text-slate-500">1-click fill</span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={handleFillAdmin}
+                className={`p-2.5 rounded-xl border text-left transition-all ${
+                  activePreset === 'admin'
+                    ? 'border-indigo-500 bg-indigo-50/70 dark:bg-indigo-950/40 text-indigo-950 dark:text-indigo-200 shadow-xs'
+                    : 'border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 hover:border-slate-300 dark:hover:border-slate-700 text-slate-700 dark:text-slate-300'
+                }`}
+              >
+                <div className="flex items-center space-x-1.5 mb-1">
+                  <Shield className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                  <span className="text-xs font-bold text-slate-900 dark:text-white">Admin</span>
+                </div>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
+                  Adds &amp; manages users, full access
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleFillUser}
+                className={`p-2.5 rounded-xl border text-left transition-all ${
+                  activePreset === 'user'
+                    ? 'border-blue-500 bg-blue-50/70 dark:bg-blue-950/40 text-blue-950 dark:text-blue-200 shadow-xs'
+                    : 'border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 hover:border-slate-300 dark:hover:border-slate-700 text-slate-700 dark:text-slate-300'
+                }`}
+              >
+                <div className="flex items-center space-x-1.5 mb-1">
+                  <UserCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                  <span className="text-xs font-bold text-slate-900 dark:text-white">Standard User</span>
+                </div>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
+                  Added by Admin, portal workspace
+                </p>
+              </button>
             </div>
           </div>
 
@@ -91,7 +160,10 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
                   type="email"
                   required
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setActivePreset(null);
+                  }}
                   placeholder="name@company.com"
                   className="w-full pl-10 pr-3.5 py-2.5 text-xs sm:text-sm rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all font-medium"
                 />
@@ -110,8 +182,11 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
                   type={showPassword ? 'text' : 'password'}
                   required
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setActivePreset(null);
+                  }}
+                  placeholder="Enter your portal password"
                   className="w-full pl-10 pr-10 py-2.5 text-xs sm:text-sm rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all font-medium"
                 />
                 <button
@@ -128,32 +203,30 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm shadow-md shadow-blue-500/20 hover:shadow-lg transition-all flex items-center justify-center space-x-2 disabled:opacity-70"
+              className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm shadow-md shadow-blue-500/20 hover:shadow-lg transition-all flex items-center justify-center space-x-2 disabled:opacity-70 cursor-pointer"
             >
-              <span>{isLoading ? 'Verifying...' : 'Sign In'}</span>
+              <span>{isLoading ? 'Authenticating...' : 'Sign In to Portal'}</span>
               {!isLoading && <ArrowRight className="w-4 h-4" />}
             </button>
           </form>
 
-          {/* Pre-fill / Hint pill */}
-          <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-            <span className="flex items-center space-x-1">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-              <span>Workspace protected</span>
-            </span>
-            <button
-              type="button"
-              onClick={handleFillDemo}
-              className="text-blue-600 dark:text-blue-400 hover:underline font-semibold"
-            >
-              Fill Credentials
-            </button>
+          {/* Role Architecture Notice */}
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800 flex items-start space-x-2 text-[11px] text-slate-500 dark:text-slate-400">
+            <Info className="w-3.5 h-3.5 shrink-0 text-slate-400 mt-0.5" />
+            <div>
+              <p className="font-semibold text-slate-700 dark:text-slate-300">
+                Admin-Controlled Access
+              </p>
+              <p className="mt-0.5 text-slate-500 dark:text-slate-400 leading-normal">
+                Admins add and provision user accounts. Once added by an Admin, users can log in with their email and password.
+              </p>
+            </div>
           </div>
         </div>
 
         {/* Footer info */}
         <p className="text-center text-[11px] text-slate-400 dark:text-slate-500 mt-6 font-medium">
-          My Work OS &bull; Secure Authentication Portal
+          My Work OS &bull; Secure Authentication &amp; User Access Management
         </p>
       </div>
     </div>

@@ -13,12 +13,18 @@ import {
   ShieldCheck,
   CheckCircle2,
   ExternalLink,
+  Users,
+  Shield,
+  ArrowRight,
 } from 'lucide-react';
 import Logo from '@/components/common/Logo';
 
 export default function SettingsView() {
   const {
     user,
+    users,
+    isAdmin,
+    setActiveTab,
     updateUser,
     resetToSeedData,
     clearAllData,
@@ -89,9 +95,19 @@ export default function SettingsView() {
               </p>
             </div>
           </div>
-          <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300">
-            Workspace Owner
-          </span>
+          <div className="flex items-center space-x-2">
+            {user.system_role === 'Admin' ? (
+              <span className="inline-flex items-center space-x-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-900/60">
+                <Shield className="w-3.5 h-3.5 text-indigo-500" />
+                <span>Portal Administrator</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center space-x-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-blue-900/60">
+                <Users className="w-3.5 h-3.5 text-blue-500" />
+                <span>Standard User</span>
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Editable Profile Inputs */}
@@ -134,6 +150,38 @@ export default function SettingsView() {
           </div>
         </div>
       </div>
+
+      {/* User Management Card (Admin Exclusive) */}
+      {isAdmin && (
+        <div className="p-6 rounded-2xl bg-gradient-to-r from-indigo-50/70 to-blue-50/70 dark:from-indigo-950/30 dark:to-blue-950/30 border border-indigo-200/80 dark:border-indigo-900/50 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-start space-x-3.5">
+            <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+              <Users className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center space-x-2">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Team &amp; User Access Management
+                </h3>
+                <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.2 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300">
+                  Admin
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                {users.length} registered user{users.length !== 1 ? 's' : ''} on the portal. Add new team members, grant credentials, and configure permissions.
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setActiveTab('users')}
+            className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs shadow-sm transition-all shrink-0 cursor-pointer"
+          >
+            <span>Manage Users</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* Database & Supabase Mode Card */}
       <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">

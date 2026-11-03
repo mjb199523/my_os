@@ -19,6 +19,9 @@ import {
   FileText,
   X,
   ExternalLink,
+  Megaphone,
+  Send,
+  Mail,
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -33,8 +36,11 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
     setIsSearchOpen,
     openQuickAdd,
     notifications,
+    unreadNotificationsCount,
     markNotificationRead,
     clearAllNotifications,
+    isAdmin,
+    openComposeMessage,
     setActiveTab,
     isSupabaseConnected,
     setIsAuthModalOpen,
@@ -109,6 +115,15 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
               <h1 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight">
                 Good {greetingTime}, {firstName} 👋
               </h1>
+              {user.system_role === 'Admin' ? (
+                <span className="hidden sm:inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300 border border-indigo-200/50 dark:border-indigo-800">
+                  <span>🛡️ Admin</span>
+                </span>
+              ) : (
+                <span className="hidden sm:inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-300 border border-blue-200/50 dark:border-blue-800">
+                  <span>👤 User</span>
+                </span>
+              )}
             </div>
             <div className="flex items-center space-x-2 text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
               <span>{formattedDate}</span>
@@ -213,74 +228,123 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
           <div className="relative" ref={notifRef}>
             <button
               onClick={() => setIsNotificationsOpen((prev) => !prev)}
-              className="relative p-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200 transition-colors"
-              aria-label="Notifications"
+              className="relative p-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:text-slate-200 transition-colors"
+              aria-label="Admin Notifications"
+              title="Admin Notifications"
             >
               <Bell className="w-4 h-4" />
-              {notifications.length > 0 && (
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+              {unreadNotificationsCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white font-bold text-[10px] flex items-center justify-center shadow-xs animate-pulse">
+                  {unreadNotificationsCount}
+                </span>
               )}
             </button>
 
             {/* Notification Dropdown Panel */}
             {isNotificationsOpen && (
-              <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-                <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
-                  <div>
-                    <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-                      Notification Centre
-                    </h3>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                      {notifications.length} actionable updates
-                    </p>
+              <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                {/* Header */}
+                <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/60 dark:bg-slate-800/40">
+                  <div className="flex items-center space-x-2">
+                    <Megaphone className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    <div>
+                      <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                        Admin Notifications
+                      </h3>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                        {unreadNotificationsCount > 0
+                          ? `${unreadNotificationsCount} unread message${unreadNotificationsCount > 1 ? 's' : ''}`
+                          : 'All messages caught up'}
+                      </p>
+                    </div>
                   </div>
-                  {notifications.length > 0 && (
-                    <button
-                      onClick={clearAllNotifications}
-                      className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline font-medium"
-                    >
-                      Clear all
-                    </button>
-                  )}
+
+                  <div className="flex items-center space-x-2">
+                    {isAdmin && (
+                      <button
+                        onClick={() => {
+                          setIsNotificationsOpen(false);
+                          openComposeMessage();
+                        }}
+                        className="inline-flex items-center space-x-1 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
+                      >
+                        <Send className="w-3 h-3" />
+                        <span>Send</span>
+                      </button>
+                    )}
+                    {unreadNotificationsCount > 0 && (
+                      <button
+                        onClick={clearAllNotifications}
+                        className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline font-medium"
+                      >
+                        Mark all read
+                      </button>
+                    )}
+                  </div>
                 </div>
 
+                {/* Notifications List */}
                 <div className="max-h-80 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
                   {notifications.length === 0 ? (
-                    <div className="p-6 text-center">
-                      <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2 opacity-80" />
-                      <p className="text-xs font-medium text-slate-600 dark:text-slate-300">
-                        All clear!
+                    <div className="p-8 text-center space-y-2">
+                      <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mx-auto">
+                        <Bell className="w-5 h-5" />
+                      </div>
+                      <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                        No notifications yet
                       </p>
-                      <p className="text-[11px] text-slate-400">
-                        No overdue tasks or urgent blockers.
+                      <p className="text-[11px] text-slate-400 max-w-xs mx-auto">
+                        When an administrator shares an announcement or direct update, it will appear here.
                       </p>
                     </div>
                   ) : (
                     notifications.map((item) => (
                       <div
                         key={item.id}
-                        className="p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors flex items-start justify-between gap-3 text-left"
+                        className={`p-3.5 transition-colors text-left flex items-start gap-3 ${
+                          !item.read
+                            ? 'bg-indigo-50/40 dark:bg-indigo-950/20 hover:bg-indigo-50/70 dark:hover:bg-indigo-950/40'
+                            : 'hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                        }`}
                       >
+                        {/* Unread indicator / avatar */}
+                        <div className="mt-1 shrink-0">
+                          {!item.read ? (
+                            <span className="w-2.5 h-2.5 rounded-full bg-indigo-600 block animate-pulse" />
+                          ) : (
+                            <span className="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-slate-600 block" />
+                          )}
+                        </div>
+
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center space-x-1.5">
-                            <span className="text-xs font-semibold text-slate-900 dark:text-white">
+                          <div className="flex items-center justify-between gap-1 mb-0.5">
+                            <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
                               {item.title}
                             </span>
-                            <span className="text-[10px] font-medium text-slate-400">
-                              • {item.timestamp}
+                            <span className="text-[10px] text-slate-400 shrink-0">
+                              {item.timestamp}
                             </span>
                           </div>
-                          <p className="text-xs text-slate-600 dark:text-slate-400 truncate mt-0.5">
+
+                          <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
                             {item.message}
                           </p>
+
+                          <div className="flex items-center justify-between mt-2 pt-1 border-t border-slate-100 dark:border-slate-800/60">
+                            <span className="text-[10px] font-medium text-slate-400">
+                              From: <span className="font-semibold text-slate-600 dark:text-slate-300">{item.sender_name || 'Administrator'}</span>
+                            </span>
+
+                            {!item.read && (
+                              <button
+                                onClick={() => markNotificationRead(item.id)}
+                                className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+                              >
+                                Mark as read
+                              </button>
+                            )}
+                          </div>
                         </div>
-                        <button
-                          onClick={() => markNotificationRead(item.id)}
-                          className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded"
-                          title="Dismiss"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
                       </div>
                     ))
                   )}

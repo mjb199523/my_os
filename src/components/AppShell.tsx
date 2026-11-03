@@ -17,6 +17,7 @@ import ReportsView from '@/components/reports/ReportsView';
 import AchievementsView from '@/components/achievements/AchievementsView';
 import NotesView from '@/components/notes/NotesView';
 import SettingsView from '@/components/settings/SettingsView';
+import UsersView from '@/components/users/UsersView';
 import LoginPage from '@/components/auth/LoginPage';
 
 // Modals
@@ -24,12 +25,20 @@ import QuickTaskUpdateModal from '@/components/modals/QuickTaskUpdateModal';
 import TaskHistoryModal from '@/components/modals/TaskHistoryModal';
 import QuickAddModal from '@/components/modals/QuickAddModal';
 import GlobalSearchModal from '@/components/modals/GlobalSearchModal';
+import SendMessageModal from '@/components/modals/SendMessageModal';
 
 import AuthModal from '@/components/modals/AuthModal';
 
 function AppContent() {
-  const { activeTab, isAuthenticated, loginUser } = useWorkOS();
+  const { activeTab, setActiveTab, isAuthenticated, isAdmin, loginUser } = useWorkOS();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // Enforce that regular users are never shown user management and land on dashboard
+  React.useEffect(() => {
+    if (isAuthenticated && !isAdmin && activeTab === 'users') {
+      setActiveTab('dashboard');
+    }
+  }, [isAuthenticated, isAdmin, activeTab, setActiveTab]);
 
   if (!isAuthenticated) {
     return <LoginPage onLoginSuccess={loginUser} />;
@@ -61,6 +70,8 @@ function AppContent() {
         return <NotesView />;
       case 'settings':
         return <SettingsView />;
+      case 'users':
+        return isAdmin ? <UsersView /> : <DashboardView />;
       default:
         return <DashboardView />;
     }
@@ -101,6 +112,7 @@ function AppContent() {
       <TaskHistoryModal />
       <QuickAddModal />
       <GlobalSearchModal />
+      <SendMessageModal />
       <AuthModal />
     </div>
   );

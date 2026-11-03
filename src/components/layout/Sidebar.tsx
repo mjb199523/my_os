@@ -15,6 +15,7 @@ import {
   Award,
   FileText,
   Settings,
+  Users,
   ChevronRight,
   Sparkles,
   LogOut,
@@ -36,6 +37,7 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
     meetings,
     issues,
     user,
+    isAdmin,
     signOutUser,
   } = useWorkOS();
 
@@ -129,6 +131,17 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
       icon: Settings,
       badge: null,
     },
+    ...(isAdmin
+      ? [
+          {
+            id: 'users',
+            label: 'User Management',
+            icon: Users,
+            badge: 'Admin',
+            badgeColor: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300',
+          },
+        ]
+      : []),
   ];
 
   const handleNavClick = (id: string) => {
@@ -215,9 +228,20 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
       <div className="p-3 border-t border-slate-200 dark:border-slate-800">
         <div className="px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800 flex items-center justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">
-              {user.name}
-            </p>
+            <div className="flex items-center space-x-1.5">
+              <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">
+                {user.name}
+              </p>
+              {user.system_role === 'Admin' ? (
+                <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.2 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300">
+                  Admin
+                </span>
+              ) : (
+                <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.2 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-300">
+                  User
+                </span>
+              )}
+            </div>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
               {user.role || 'Product Delivery Manager'}
             </p>
@@ -225,7 +249,7 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
           <button
             onClick={() => signOutUser()}
             title="Sign out"
-            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 transition-colors"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 transition-colors cursor-pointer"
           >
             <LogOut className="w-4 h-4" />
           </button>

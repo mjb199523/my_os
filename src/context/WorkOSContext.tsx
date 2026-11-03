@@ -14,12 +14,16 @@ import {
   Note,
   Milestone,
   NotificationItem,
+  AdminMessage,
+  MessagePriority,
   TaskStatus,
   FollowupStatus,
   IssueStatus,
 } from '@/types';
 import {
   CURRENT_USER,
+  INITIAL_USERS,
+  INITIAL_ADMIN_MESSAGES,
   INITIAL_PROJECTS,
   INITIAL_TASKS,
   INITIAL_TASK_UPDATES,
@@ -140,10 +144,37 @@ interface WorkOSContextType {
   updateNote: (id: string, updates: Partial<Note>) => Promise<void>;
   deleteNote: (id: string) => Promise<void>;
 
-  // User profile actions
+  // User profile & Portal user actions
   updateUser: (updates: Partial<User>) => Promise<void>;
+  users: User[];
+  isAdmin: boolean;
+  addUser: (newUser: {
+    name: string;
+    email: string;
+    role?: string;
+    system_role: 'Admin' | 'User';
+    password?: string;
+    status?: 'Active' | 'Inactive';
+  }) => Promise<{ success: boolean; error?: string }>;
+  updatePortalUser: (id: string, updates: Partial<User>) => Promise<{ success: boolean; error?: string }>;
+  deletePortalUser: (id: string) => Promise<{ success: boolean; error?: string }>;
+  loginWithCredentials: (email: string, pass: string) => Promise<{ success: boolean; error?: string; user?: User }>;
 
-  // Notification actions
+  // Admin Messages & Notification Centre
+  adminMessages: AdminMessage[];
+  unreadNotificationsCount: number;
+  sendAdminMessage: (payload: {
+    target_user_id: string;
+    title: string;
+    message: string;
+    priority?: MessagePriority;
+  }) => Promise<{ success: boolean; error?: string }>;
+  deleteAdminMessage: (id: string) => Promise<{ success: boolean; error?: string }>;
+  isComposeMessageOpen: boolean;
+  setIsComposeMessageOpen: (open: boolean) => void;
+  composeTargetUserId?: string;
+  openComposeMessage: (targetUserId?: string) => void;
+  closeComposeMessage: () => void;
   markNotificationRead: (id: string) => void;
   clearAllNotifications: () => void;
 
@@ -184,6 +215,19 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
   const [quickUpdateTask, setQuickUpdateTask] = useState<Task | null>(null);
   const [historyTask, setHistoryTask] = useState<Task | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [adminMessages, setAdminMessages] = useState<AdminMessage[]>(INITIAL_ADMIN_MESSAGES);
+  const [isComposeMessageOpen, setIsComposeMessageOpen] = useState(false);
+  const [composeTargetUserId, setComposeTargetUserId] = useState<string | undefined>(undefined);
+
+  const openComposeMessage = (targetUserId?: string) => {
+    setComposeTargetUserId(targetUserId);
+    setIsComposeMessageOpen(true);
+  };
+
+  const closeComposeMessage = () => {
+    setIsComposeMessageOpen(false);
+    setComposeTargetUserId(undefined);
+  };
 
   // Sync state
   const [isSyncing, setIsSyncing] = useState(false);
@@ -194,7 +238,12 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
 
   // Data state (clean slate starting from 0)
+  const [users, setUsers] = useState<User[]>(INITIAL_USERS);
   const [user, setUser] = useState<User>(CURRENT_USER);
+
+  const isAdmin = useMemo(() => {
+    return user?.system_role === 'Admin';
+  }, [user?.system_role]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [taskUpdates, setTaskUpdates] = useState<TaskUpdate[]>([]);
@@ -230,6 +279,38 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
       const savedData = localStorage.getItem(STORAGE_KEY);
       if (savedData) {
         const parsed = JSON.parse(savedData);
+        let loadedUsers: User[] = INITIAL_USERS;
+        if (Array.isArray(parsed.users) && parsed.users.length > 0) {
+          const existingEmails = new Set(parsed.users.map((u: User) => u.email.toLowerCase()));
+          const merged = [...parsed.users];
+          for (const iu of INITIAL_USERS) {
+            if (!existingEmails.has(iu.email.toLowerCase())) {
+              merged.push(iu);
+            }
+          }
+          loadedUsers = merged;
+          setUsers(loadedUsers);
+        } else {
+          setUsers(INITIAL_USERS);
+        }
+
+        const activeUserId = localStorage.getItem('my_work_os_active_user_id');
+        if (activeUserId) {
+          const activeUser = loadedUsers.find((u: User) => u.id === activeUserId);
+          if (activeUser) {
+            setUser(activeUser);
+          } else if (parsed.user) {
+            setUser({
+              ...parsed.user,
+              system_role: parsed.user.system_role || 'Admin',
+            });
+          }
+        } else if (parsed.user) {
+          setUser({
+            ...parsed.user,
+            system_role: parsed.user.system_role || 'Admin',
+          });
+        }
         if (Array.isArray(parsed.projects)) setProjects(parsed.projects);
         if (Array.isArray(parsed.tasks)) setTasks(parsed.tasks);
         if (Array.isArray(parsed.taskUpdates)) setTaskUpdates(parsed.taskUpdates);
@@ -240,6 +321,11 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
         if (Array.isArray(parsed.achievements)) setAchievements(parsed.achievements);
         if (Array.isArray(parsed.notes)) setNotes(parsed.notes);
         if (Array.isArray(parsed.milestones)) setMilestones(parsed.milestones);
+        if (Array.isArray(parsed.adminMessages)) {
+          setAdminMessages(parsed.adminMessages);
+        } else {
+          setAdminMessages(INITIAL_ADMIN_MESSAGES);
+        }
         if (parsed.user) setUser(parsed.user);
       }
     } catch (e) {
@@ -255,6 +341,8 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
     try {
       const payload = {
         user,
+        users,
+        adminMessages,
         projects,
         tasks,
         taskUpdates,
@@ -273,6 +361,8 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
   }, [
     isInitialized,
     user,
+    users,
+    adminMessages,
     projects,
     tasks,
     taskUpdates,
@@ -430,6 +520,47 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
         setNotes(remoteNotes || []);
       }
 
+      // 10. Fetch remote users
+      const { data: remoteUsers, error: usrErr } = await client.from('users').select('*');
+      if (!usrErr && remoteUsers && remoteUsers.length > 0) {
+        setUsers((prev) => {
+          const merged = [...prev];
+          for (const ru of remoteUsers) {
+            const idx = merged.findIndex((u) => u.id === ru.id || u.email.toLowerCase() === ru.email.toLowerCase());
+            if (idx >= 0) {
+              merged[idx] = { ...merged[idx], ...ru };
+            } else {
+              merged.push({
+                ...ru,
+                system_role: ru.system_role || 'User',
+                status: ru.status || 'Active',
+              });
+            }
+          }
+          return merged;
+        });
+      }
+
+      // 11. Fetch remote admin messages (unidirectional notifications)
+      const { data: remoteMsgs, error: msgErr } = await client
+        .from('admin_messages')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (!msgErr && remoteMsgs && remoteMsgs.length > 0) {
+        setAdminMessages((prev) => {
+          const merged = [...prev];
+          for (const rm of remoteMsgs) {
+            const idx = merged.findIndex((m) => m.id === rm.id);
+            if (idx >= 0) {
+              merged[idx] = { ...merged[idx], ...rm };
+            } else {
+              merged.push(rm);
+            }
+          }
+          return merged;
+        });
+      }
+
       setLastSyncedAt(new Date().toLocaleTimeString());
     } catch (e) {
       console.error('Supabase sync error:', e);
@@ -475,13 +606,221 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
   };
 
   const loginUser = (email: string) => {
+    const cleanEmail = email.trim().toLowerCase();
+    const matchedUser = users.find((u) => u.email.trim().toLowerCase() === cleanEmail);
+    if (matchedUser) {
+      setUser(matchedUser);
+      localStorage.setItem('my_work_os_active_user_id', matchedUser.id);
+    } else {
+      setUser((prev) => ({
+        ...prev,
+        email: cleanEmail,
+        name: prev.name || 'Manashjyoti Barman',
+        system_role: 'Admin',
+      }));
+    }
     setIsAuthenticated(true);
+    setActiveTab('dashboard');
     localStorage.setItem('my_work_os_authenticated', 'true');
-    setUser((prev) => ({
-      ...prev,
-      email,
-      name: prev.name || 'Manashjyoti Barman',
-    }));
+  };
+
+  const loginWithCredentials = async (
+    email: string,
+    pass: string
+  ): Promise<{ success: boolean; error?: string; user?: User }> => {
+    const cleanEmail = email.trim().toLowerCase();
+    const matchedUser = users.find((u) => u.email.trim().toLowerCase() === cleanEmail);
+
+    if (!matchedUser) {
+      // If not in local users, attempt Supabase if client is configured
+      const client = getSupabase();
+      if (client) {
+        const res = await client.auth.signInWithPassword({ email: cleanEmail, password: pass });
+        if (!res.error && res.data.user) {
+          const cloudUser: User = {
+            id: res.data.user.id,
+            name: res.data.user.user_metadata?.full_name || cleanEmail.split('@')[0],
+            email: cleanEmail,
+            role: res.data.user.user_metadata?.role || 'Team Member',
+            system_role: (res.data.user.user_metadata?.system_role as 'Admin' | 'User') || 'User',
+            status: 'Active',
+            created_at: res.data.user.created_at,
+            last_login_at: new Date().toISOString(),
+          };
+          setUser(cloudUser);
+          setUsers((prev) => (prev.some((u) => u.id === cloudUser.id) ? prev : [...prev, cloudUser]));
+          setIsAuthenticated(true);
+          setActiveTab('dashboard');
+          localStorage.setItem('my_work_os_authenticated', 'true');
+          localStorage.setItem('my_work_os_active_user_id', cloudUser.id);
+          return { success: true, user: cloudUser };
+        }
+      }
+      return { success: false, error: 'Invalid email or password. Please verify your credentials.' };
+    }
+
+    if (matchedUser.status === 'Inactive') {
+      return {
+        success: false,
+        error: 'This account has been deactivated by an Administrator. Please contact support.',
+      };
+    }
+
+    if (matchedUser.password && matchedUser.password !== pass) {
+      return { success: false, error: 'Incorrect password. Please try again.' };
+    }
+
+    const updatedUser: User = {
+      ...matchedUser,
+      last_login_at: new Date().toISOString(),
+    };
+
+    setUser(updatedUser);
+    setUsers((prev) => prev.map((u) => (u.id === updatedUser.id ? updatedUser : u)));
+    setIsAuthenticated(true);
+    setActiveTab('dashboard');
+    localStorage.setItem('my_work_os_authenticated', 'true');
+    localStorage.setItem('my_work_os_active_user_id', updatedUser.id);
+
+    return { success: true, user: updatedUser };
+  };
+
+  const addUser = async (newUserData: {
+    name: string;
+    email: string;
+    role?: string;
+    system_role: 'Admin' | 'User';
+    password?: string;
+    status?: 'Active' | 'Inactive';
+  }): Promise<{ success: boolean; error?: string }> => {
+    if (!isAdmin) {
+      return { success: false, error: 'Access denied. Only Administrators can onboard users.' };
+    }
+
+    const cleanEmail = newUserData.email.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      return { success: false, error: 'Please enter a valid email address.' };
+    }
+
+    if (users.some((u) => u.email.trim().toLowerCase() === cleanEmail)) {
+      return { success: false, error: 'A user with this email address already exists.' };
+    }
+
+    const newUser: User = {
+      id: `usr_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      name: newUserData.name.trim(),
+      email: cleanEmail,
+      role: newUserData.role?.trim() || (newUserData.system_role === 'Admin' ? 'System Administrator' : 'Product Contributor'),
+      system_role: newUserData.system_role,
+      password: newUserData.password || 'User123!@#',
+      status: newUserData.status || 'Active',
+      avatar_url: '',
+      created_at: new Date().toISOString(),
+      last_login_at: undefined,
+    };
+
+    setUsers((prev) => [newUser, ...prev]);
+
+    // If Supabase is connected, persist to Supabase users table
+    const client = getSupabase();
+    if (client) {
+      try {
+        await client.from('users').insert({
+          id: newUser.id,
+          name: newUser.name,
+          email: newUser.email,
+          role: newUser.role,
+          system_role: newUser.system_role,
+          status: newUser.status,
+          created_at: newUser.created_at,
+        });
+      } catch (err) {
+        console.warn('Supabase remote user insert skipped:', err);
+      }
+    }
+
+    return { success: true };
+  };
+
+  const updatePortalUser = async (
+    id: string,
+    updates: Partial<User>
+  ): Promise<{ success: boolean; error?: string }> => {
+    if (!isAdmin && user.id !== id) {
+      return { success: false, error: 'Access denied. Only Administrators can update user accounts.' };
+    }
+
+    // Guard: Prevent removing the last Administrator
+    if (updates.system_role === 'User') {
+      const adminCount = users.filter((u) => u.system_role === 'Admin').length;
+      const targetUser = users.find((u) => u.id === id);
+      if (targetUser?.system_role === 'Admin' && adminCount <= 1) {
+        return { success: false, error: 'Cannot remove the last Administrator on the portal.' };
+      }
+    }
+
+    setUsers((prev) =>
+      prev.map((u) => {
+        if (u.id === id) {
+          return { ...u, ...updates };
+        }
+        return u;
+      })
+    );
+
+    if (id === user.id) {
+      setUser((prev) => ({ ...prev, ...updates }));
+    }
+
+    const client = getSupabase();
+    if (client) {
+      try {
+        await client
+          .from('users')
+          .update({
+            ...(updates.name && { name: updates.name }),
+            ...(updates.role && { role: updates.role }),
+            ...(updates.system_role && { system_role: updates.system_role }),
+            ...(updates.status && { status: updates.status }),
+          })
+          .eq('id', id);
+      } catch (err) {
+        console.warn('Supabase remote user update skipped:', err);
+      }
+    }
+
+    return { success: true };
+  };
+
+  const deletePortalUser = async (id: string): Promise<{ success: boolean; error?: string }> => {
+    if (!isAdmin) {
+      return { success: false, error: 'Access denied. Only Administrators can delete users.' };
+    }
+
+    if (id === user.id) {
+      return { success: false, error: 'You cannot delete your own active Administrator account.' };
+    }
+
+    const targetUser = users.find((u) => u.id === id);
+    if (targetUser?.system_role === 'Admin') {
+      const adminCount = users.filter((u) => u.system_role === 'Admin').length;
+      if (adminCount <= 1) {
+        return { success: false, error: 'Cannot delete the last Administrator on the portal.' };
+      }
+    }
+
+    setUsers((prev) => prev.filter((u) => u.id !== id));
+
+    const client = getSupabase();
+    if (client) {
+      try {
+        await client.from('users').delete().eq('id', id);
+      } catch (err) {
+        console.warn('Supabase remote user delete skipped:', err);
+      }
+    }
+
+    return { success: true };
   };
 
   const signOutUser = async () => {
@@ -490,7 +829,9 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
       await client.auth.signOut();
     }
     setIsAuthenticated(false);
+    setActiveTab('dashboard');
     localStorage.removeItem('my_work_os_authenticated');
+    localStorage.removeItem('my_work_os_active_user_id');
   };
 
   // DYNAMIC TASK ACTIONS
@@ -1222,88 +1563,160 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // DYNAMIC NOTIFICATIONS
+  // UNIDIRECTIONAL ADMIN NOTIFICATIONS (Admin -> Users)
   const notifications: NotificationItem[] = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0];
-    const items: NotificationItem[] = [];
+    if (!user?.id) return [];
 
-    tasks
-      .filter((t) => t.due_date === today && t.status !== 'Done')
-      .forEach((t) => {
-        items.push({
-          id: `notif_due_${t.id}`,
-          title: 'Task Due Today',
-          message: `${t.title} (${t.priority} priority)`,
-          type: 'task_due',
-          target_id: t.id,
-          timestamp: 'Today',
-          read: false,
+    const relevant = adminMessages.filter((msg) => {
+      if (msg.target_user_id === 'all') return true;
+      if (msg.target_user_id === user.id) return true;
+      if (isAdmin) return true; // Admin can also review sent messages
+      return false;
+    });
+
+    return relevant.map((msg) => {
+      const isRead = msg.read_by.includes(user.id);
+      return {
+        id: msg.id,
+        title: msg.title,
+        message: msg.message,
+        type: 'admin_message' as const,
+        target_id: msg.id,
+        timestamp: new Date(msg.created_at).toLocaleDateString(undefined, {
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+        read: isRead,
+        priority: msg.priority,
+        sender_name: msg.sender_name,
+      };
+    });
+  }, [adminMessages, user?.id, isAdmin]);
+
+  const unreadNotificationsCount = useMemo(() => {
+    return notifications.filter((n) => !n.read).length;
+  }, [notifications]);
+
+  const markNotificationRead = (id: string) => {
+    setAdminMessages((prev) =>
+      prev.map((msg) => {
+        if (msg.id === id) {
+          if (!msg.read_by.includes(user.id)) {
+            const updatedReadBy = [...msg.read_by, user.id];
+            const client = getSupabase();
+            if (client) {
+              Promise.resolve(
+                client.from('admin_messages').update({ read_by: updatedReadBy }).eq('id', id)
+              ).catch((err) => {
+                console.warn('Supabase mark read update error:', err);
+              });
+            }
+            return { ...msg, read_by: updatedReadBy };
+          }
+        }
+        return msg;
+      })
+    );
+  };
+
+  const clearAllNotifications = () => {
+    setAdminMessages((prev) =>
+      prev.map((msg) => {
+        if (!msg.read_by.includes(user.id)) {
+          const updatedReadBy = [...msg.read_by, user.id];
+          const client = getSupabase();
+          if (client) {
+            Promise.resolve(
+              client.from('admin_messages').update({ read_by: updatedReadBy }).eq('id', msg.id)
+            ).catch((err) => {
+              console.warn('Supabase clear read update error:', err);
+            });
+          }
+          return { ...msg, read_by: updatedReadBy };
+        }
+        return msg;
+      })
+    );
+  };
+
+  const sendAdminMessage = async (payload: {
+    target_user_id: string;
+    title: string;
+    message: string;
+    priority?: MessagePriority;
+  }): Promise<{ success: boolean; error?: string }> => {
+    if (!isAdmin) {
+      return { success: false, error: 'Access denied: Only administrators can broadcast or send notifications.' };
+    }
+
+    if (!payload.title.trim() || !payload.message.trim()) {
+      return { success: false, error: 'Title and message cannot be empty.' };
+    }
+
+    let targetName = 'All Users';
+    if (payload.target_user_id !== 'all') {
+      const target = users.find((u) => u.id === payload.target_user_id);
+      targetName = target ? target.name : 'Selected User';
+    }
+
+    const newMessage: AdminMessage = {
+      id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      sender_id: user.id,
+      sender_name: `${user.name} (Admin)`,
+      target_user_id: payload.target_user_id,
+      target_user_name: targetName,
+      title: payload.title.trim(),
+      message: payload.message.trim(),
+      priority: payload.priority || 'Normal',
+      created_at: new Date().toISOString(),
+      read_by: [],
+    };
+
+    setAdminMessages((prev) => [newMessage, ...prev]);
+
+    const client = getSupabase();
+    if (client) {
+      try {
+        await client.from('admin_messages').insert({
+          id: newMessage.id,
+          sender_id: user.id,
+          sender_name: newMessage.sender_name,
+          target_user_id: payload.target_user_id,
+          target_user_name: newMessage.target_user_name,
+          title: newMessage.title,
+          message: newMessage.message,
+          priority: newMessage.priority,
+          read_by: newMessage.read_by,
+          created_at: newMessage.created_at,
         });
-      });
+      } catch (err) {
+        console.warn('Supabase remote admin message insert skipped/error:', err);
+      }
+    }
 
-    tasks
-      .filter((t) => t.due_date < today && t.status !== 'Done')
-      .forEach((t) => {
-        items.push({
-          id: `notif_overdue_${t.id}`,
-          title: 'Task Overdue ⚠️',
-          message: `${t.title} was due on ${t.due_date}`,
-          type: 'task_overdue',
-          target_id: t.id,
-          timestamp: 'Overdue',
-          read: false,
-        });
-      });
+    return { success: true };
+  };
 
-    followups
-      .filter((f) => f.followup_date <= today && f.status !== 'Completed')
-      .forEach((f) => {
-        items.push({
-          id: `notif_fol_${f.id}`,
-          title: 'Follow-up Due Today',
-          message: `Follow up with ${f.person} on ${f.topic}`,
-          type: 'followup_due',
-          target_id: f.id,
-          timestamp: 'Today',
-          read: false,
-        });
-      });
+  const deleteAdminMessage = async (id: string): Promise<{ success: boolean; error?: string }> => {
+    if (!isAdmin) {
+      return { success: false, error: 'Access denied: Only administrators can delete notifications.' };
+    }
 
-    issues
-      .filter((i) => i.status !== 'Resolved' && i.status !== 'Closed')
-      .forEach((i) => {
-        items.push({
-          id: `notif_iss_${i.id}`,
-          title: 'Active Blocker 🔴',
-          message: `${i.title} (${i.severity} severity)`,
-          type: 'blocker',
-          target_id: i.id,
-          timestamp: 'Action Needed',
-          read: false,
-        });
-      });
+    setAdminMessages((prev) => prev.filter((m) => m.id !== id));
 
-    meetings
-      .filter((m) => m.meeting_date === today)
-      .forEach((m) => {
-        items.push({
-          id: `notif_mtg_${m.id}`,
-          title: 'Meeting Scheduled',
-          message: `${m.title} at ${m.start_time}`,
-          type: 'meeting',
-          target_id: m.id,
-          timestamp: m.start_time,
-          read: false,
-        });
-      });
+    const client = getSupabase();
+    if (client) {
+      try {
+        await client.from('admin_messages').delete().eq('id', id);
+      } catch (err) {
+        console.warn('Supabase remote admin message delete skipped/error:', err);
+      }
+    }
 
-    return items;
-  }, [tasks, followups, issues, meetings]);
-
-  const [dismissedNotifications, setDismissedNotifications] = useState<string[]>([]);
-  const activeNotifications = useMemo(() => {
-    return notifications.filter((n) => !dismissedNotifications.includes(n.id));
-  }, [notifications, dismissedNotifications]);
+    return { success: true };
+  };
 
   // USER PROFILE ACTIONS
   const updateUser = async (updates: Partial<User>) => {
@@ -1332,14 +1745,6 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const markNotificationRead = (id: string) => {
-    setDismissedNotifications((prev) => [...prev, id]);
-  };
-
-  const clearAllNotifications = () => {
-    setDismissedNotifications(notifications.map((n) => n.id));
-  };
-
   // SYSTEM DATA METHODS
   const clearAllData = () => {
     localStorage.removeItem(STORAGE_KEY);
@@ -1358,6 +1763,8 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
   const resetToSeedData = () => {
     localStorage.removeItem(STORAGE_KEY);
     setUser(CURRENT_USER);
+    setUsers(INITIAL_USERS);
+    setAdminMessages(INITIAL_ADMIN_MESSAGES);
     setProjects(INITIAL_PROJECTS);
     setTasks(INITIAL_TASKS);
     setTaskUpdates(INITIAL_TASK_UPDATES);
@@ -1374,6 +1781,8 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
     const payload = {
       exportedAt: new Date().toISOString(),
       user,
+      users,
+      adminMessages,
       projects,
       tasks,
       taskUpdates,
@@ -1391,6 +1800,8 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
   const importDataJSON = (jsonStr: string) => {
     try {
       const parsed = JSON.parse(jsonStr);
+      if (Array.isArray(parsed.users)) setUsers(parsed.users);
+      if (Array.isArray(parsed.adminMessages)) setAdminMessages(parsed.adminMessages);
       if (parsed.projects) setProjects(parsed.projects);
       if (parsed.tasks) setTasks(parsed.tasks);
       if (parsed.taskUpdates) setTaskUpdates(parsed.taskUpdates);
@@ -1422,7 +1833,16 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
         achievements,
         notes,
         milestones,
-        notifications: activeNotifications,
+        notifications,
+        unreadNotificationsCount,
+        adminMessages,
+        sendAdminMessage,
+        deleteAdminMessage,
+        isComposeMessageOpen,
+        setIsComposeMessageOpen,
+        composeTargetUserId,
+        openComposeMessage,
+        closeComposeMessage,
         darkMode,
         toggleDarkMode,
         activeTab,
@@ -1480,6 +1900,12 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
         updateNote,
         deleteNote,
         updateUser,
+        users,
+        isAdmin,
+        addUser,
+        updatePortalUser,
+        deletePortalUser,
+        loginWithCredentials,
         markNotificationRead,
         clearAllNotifications,
         clearAllData,

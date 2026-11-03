@@ -13,6 +13,9 @@ CREATE TABLE IF NOT EXISTS public.users (
   email TEXT UNIQUE NOT NULL,
   avatar_url TEXT,
   role TEXT DEFAULT 'Product Delivery Manager',
+  system_role TEXT DEFAULT 'User' CHECK (system_role IN ('Admin', 'User')),
+  status TEXT DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive')),
+  last_login_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -215,3 +218,23 @@ CREATE POLICY "Users can manage own notes" ON public.notes FOR ALL USING (auth.u
 CREATE POLICY "Users can view milestones for own projects" ON public.milestones FOR ALL USING (
   EXISTS (SELECT 1 FROM public.projects WHERE projects.id = milestones.project_id AND projects.user_id = auth.uid())
 );
+
+-- 12. ADMIN MESSAGES TABLE (Unidirectional Notifications from Admin to Users)
+CREATE TABLE IF NOT EXISTS public.admin_messages (
+  id TEXT PRIMARY KEY DEFAULT uuid_generate_v4()::text,
+  sender_id TEXT,
+  sender_name TEXT,
+  target_user_id TEXT NOT NULL DEFAULT 'all',
+  target_user_name TEXT DEFAULT 'All Users',
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  priority TEXT NOT NULL DEFAULT 'Normal' CHECK (priority IN ('Normal', 'Important', 'Urgent', 'Announcement')),
+  read_by TEXT[] DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.admin_messages ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view messages addressed to them or all" ON public.admin_messages FOR SELECT USING (
+  target_user_id = 'all' OR target_user_id = auth.uid()::text OR sender_id = auth.uid()::text OR auth.role() IN ('authenticated', 'anon')
+);
+CREATE POLICY "Admins can manage messages" ON public.admin_messages FOR ALL USING (true) WITH CHECK (true);

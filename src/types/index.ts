@@ -29,13 +29,19 @@ export type AchievementCategory =
   | 'Leadership'
   | 'Process Improvement';
 
+export type SystemRole = 'Admin' | 'User';
+
 export interface User {
   id: string;
   name: string;
   email: string;
   avatar_url?: string;
-  role?: string;
+  role?: string; // Job title / Department
+  system_role: SystemRole; // 'Admin' | 'User'
+  password?: string;
+  status?: 'Active' | 'Inactive';
   created_at: string;
+  last_login_at?: string;
 }
 
 export interface Project {
@@ -197,12 +203,29 @@ export interface Milestone {
   completed_at?: string | null;
 }
 
+export type MessagePriority = 'Normal' | 'Important' | 'Urgent' | 'Announcement';
+
+export interface AdminMessage {
+  id: string;
+  sender_id: string;
+  sender_name: string;
+  target_user_id: string; // 'all' or specific user id
+  target_user_name?: string; // 'All Users' or specific user name
+  title: string;
+  message: string;
+  priority: MessagePriority;
+  created_at: string;
+  read_by: string[]; // User IDs who have marked it as read
+}
+
 export interface NotificationItem {
   id: string;
   title: string;
   message: string;
-  type: 'task_due' | 'task_overdue' | 'followup_due' | 'meeting' | 'blocker';
+  type: 'admin_message' | 'task_due' | 'task_overdue' | 'followup_due' | 'meeting' | 'blocker';
   target_id?: string;
   timestamp: string;
   read: boolean;
+  priority?: MessagePriority;
+  sender_name?: string;
 }
