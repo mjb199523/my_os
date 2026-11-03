@@ -30,7 +30,7 @@ export default function AddUserModal({ isOpen, onClose }: AddUserModalProps) {
   const [email, setEmail] = useState('');
   const [jobTitle, setJobTitle] = useState('');
   const [systemRole, setSystemRole] = useState<SystemRole>('User');
-  const [password, setPassword] = useState('User123!@#');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [status, setStatus] = useState<'Active' | 'Inactive'>('Active');
   const [error, setError] = useState<string | null>(null);
@@ -66,7 +66,7 @@ export default function AddUserModal({ isOpen, onClose }: AddUserModalProps) {
         setName('');
         setEmail('');
         setJobTitle('');
-        setPassword('User123!@#');
+        setPassword('');
         setSystemRole('User');
         onClose();
       } else {

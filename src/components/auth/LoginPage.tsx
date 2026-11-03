@@ -10,9 +10,6 @@ import {
   EyeOff,
   AlertCircle,
   ArrowRight,
-  Shield,
-  UserCheck,
-  Sparkles,
   Info,
 } from 'lucide-react';
 
@@ -28,7 +25,6 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [activePreset, setActivePreset] = useState<'admin' | 'user' | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,20 +45,6 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleFillAdmin = () => {
-    setEmail('manashjyoti.barman07@gmail.com');
-    setPassword('Manash123!@#');
-    setActivePreset('admin');
-    setError(null);
-  };
-
-  const handleFillUser = () => {
-    setEmail('alex.user@workos.com');
-    setPassword('User123!@#');
-    setActivePreset('user');
-    setError(null);
   };
 
   return (
@@ -89,55 +71,6 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
             </div>
           </div>
 
-          {/* Quick Role Fill Presets */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 dark:text-slate-400 px-0.5">
-              <span className="flex items-center space-x-1">
-                <Sparkles className="w-3.5 h-3.5 text-blue-500" />
-                <span>Test Role Credentials</span>
-              </span>
-              <span className="text-[10px] text-slate-400 dark:text-slate-500">1-click fill</span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={handleFillAdmin}
-                className={`p-2.5 rounded-xl border text-left transition-all ${
-                  activePreset === 'admin'
-                    ? 'border-indigo-500 bg-indigo-50/70 dark:bg-indigo-950/40 text-indigo-950 dark:text-indigo-200 shadow-xs'
-                    : 'border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 hover:border-slate-300 dark:hover:border-slate-700 text-slate-700 dark:text-slate-300'
-                }`}
-              >
-                <div className="flex items-center space-x-1.5 mb-1">
-                  <Shield className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                  <span className="text-xs font-bold text-slate-900 dark:text-white">Admin</span>
-                </div>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
-                  Adds &amp; manages users, full access
-                </p>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleFillUser}
-                className={`p-2.5 rounded-xl border text-left transition-all ${
-                  activePreset === 'user'
-                    ? 'border-blue-500 bg-blue-50/70 dark:bg-blue-950/40 text-blue-950 dark:text-blue-200 shadow-xs'
-                    : 'border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 hover:border-slate-300 dark:hover:border-slate-700 text-slate-700 dark:text-slate-300'
-                }`}
-              >
-                <div className="flex items-center space-x-1.5 mb-1">
-                  <UserCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                  <span className="text-xs font-bold text-slate-900 dark:text-white">Standard User</span>
-                </div>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
-                  Added by Admin, portal workspace
-                </p>
-              </button>
-            </div>
-          </div>
-
           {/* Error Message */}
           {error && (
             <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 flex items-start space-x-2 text-rose-700 dark:text-rose-300 text-xs">
@@ -160,10 +93,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
                   type="email"
                   required
                   value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    setActivePreset(null);
-                  }}
+                  onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@company.com"
                   className="w-full pl-10 pr-3.5 py-2.5 text-xs sm:text-sm rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all font-medium"
                 />
@@ -182,10 +112,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
                   type={showPassword ? 'text' : 'password'}
                   required
                   value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value);
-                    setActivePreset(null);
-                  }}
+                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter your portal password"
                   className="w-full pl-10 pr-10 py-2.5 text-xs sm:text-sm rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all font-medium"
                 />

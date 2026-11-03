@@ -917,7 +917,7 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
       email: cleanEmail,
       role: newUserData.role?.trim() || (newUserData.system_role === 'Admin' ? 'System Administrator' : 'Product Contributor'),
       system_role: newUserData.system_role,
-      password: newUserData.password || 'User123!@#',
+      password: newUserData.password || undefined,
       status: newUserData.status || 'Active',
       avatar_url: '',
       created_at: new Date().toISOString(),
@@ -2168,10 +2168,20 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Sanitize public users and current user so password fields are NEVER exposed to consumer components or React tree
+  const sanitizedUsers = useMemo(() => {
+    return users.map(({ password: _p, ...safeUser }) => safeUser);
+  }, [users]);
+
+  const sanitizedUser = useMemo(() => {
+    const { password: _p, ...safeUser } = user;
+    return safeUser;
+  }, [user]);
+
   return (
     <WorkOSContext.Provider
       value={{
-        user,
+        user: sanitizedUser,
         projects,
         tasks,
         taskUpdates,
@@ -2251,7 +2261,7 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
         updateNote,
         deleteNote,
         updateUser,
-        users,
+        users: sanitizedUsers,
         isAdmin,
         addUser,
         updatePortalUser,
