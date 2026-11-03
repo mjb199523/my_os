@@ -228,4 +228,6 @@ export interface NotificationItem {
   read: boolean;
   priority?: MessagePriority;
   sender_name?: string;
+  target_user_id?: string;
+  target_user_name?: string;
 }

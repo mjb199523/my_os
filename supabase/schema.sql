@@ -249,6 +249,6 @@ CREATE TABLE IF NOT EXISTS public.admin_messages (
 
 ALTER TABLE public.admin_messages ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view messages addressed to them or all" ON public.admin_messages FOR SELECT USING (
-  target_user_id = 'all' OR target_user_id = auth.uid()::text OR sender_id = auth.uid()::text OR auth.role() IN ('authenticated', 'anon')
+  target_user_id = 'all' OR target_user_id = auth.uid()::text OR sender_id = auth.uid()::text OR public.is_admin()
 );
 CREATE POLICY "Admins can manage messages" ON public.admin_messages FOR ALL USING (true) WITH CHECK (true);

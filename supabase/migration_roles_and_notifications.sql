@@ -55,7 +55,7 @@ USING (
   target_user_id = 'all' 
   OR target_user_id = auth.uid()::text 
   OR sender_id = auth.uid()::text
-  OR auth.role() IN ('authenticated', 'anon')
+  OR public.is_admin()
 );
 
 -- Policy: Allow insert, update, and delete

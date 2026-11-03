@@ -1892,13 +1892,18 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
   };
 
   // UNIDIRECTIONAL ADMIN NOTIFICATIONS (Admin -> Users)
+  // Strict recipient delivery: Broadcast ('all') goes to everyone, individual goes ONLY to selected recipient
   const notifications: NotificationItem[] = useMemo(() => {
     if (!user?.id) return [];
 
     const relevant = adminMessages.filter((msg) => {
+      // 1. In case of 'all', the message is sent to all
       if (msg.target_user_id === 'all') return true;
+
+      // 2. Direct message goes ONLY to the specifically selected user
       if (msg.target_user_id === user.id) return true;
-      if (isAdmin) return true; // Admin can also review sent messages
+
+      // When this user is not selected, do not deliver to them
       return false;
     });
 
@@ -1919,9 +1924,11 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
         read: isRead,
         priority: msg.priority,
         sender_name: msg.sender_name,
+        target_user_id: msg.target_user_id,
+        target_user_name: msg.target_user_name,
       };
     });
-  }, [adminMessages, user?.id, isAdmin]);
+  }, [adminMessages, user?.id]);
 
   const unreadNotificationsCount = useMemo(() => {
     return notifications.filter((n) => !n.read).length;
