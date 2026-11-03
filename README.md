@@ -1,4 +1,4 @@
-# Nexus OS — High-Output Personal Command Centre
+# Nexus OS - High-Output Personal Command Centre
 
 A modern, responsive personal command centre designed specifically for a **Product / Project Delivery Manager** to manage daily work, projects, tasks, follow-ups, meetings, issues, daily work logs, and professional achievements from a unified interface.
 

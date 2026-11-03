@@ -577,7 +577,7 @@ export default function DashboardView() {
                       {f.person}
                     </p>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                      {f.topic} — {f.expected_action}
+                      {f.topic} - {f.expected_action}
                     </p>
                   </div>
                   <span

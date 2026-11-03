@@ -185,11 +185,11 @@ export default function FollowupsView() {
                       </td>
 
                       <td className="py-3.5 px-4 text-slate-600 dark:text-slate-400 whitespace-nowrap">
-                        {project?.name || '—'}
+                        {project?.name || '-'}
                       </td>
 
                       <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400 whitespace-nowrap">
-                        {fol.last_discussion || '—'}
+                        {fol.last_discussion || '-'}
                       </td>
 
                       <td className="py-3.5 px-4 text-slate-700 dark:text-slate-300 min-w-[200px]">

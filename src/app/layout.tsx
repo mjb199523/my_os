@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Nexus OS — High-Output Personal Command Centre",
+  title: "Nexus OS - High-Output Personal Command Centre",
   description:
     "Intelligent command centre for Product & Project Delivery Managers: manage daily work, projects, tasks, follow-ups, meetings, issues, daily logs, and achievements.",
   icons: {
