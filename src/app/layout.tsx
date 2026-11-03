@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "My Work OS — Personal Work Management & Productivity Dashboard",
+  title: "Nexus OS — High-Output Personal Command Centre",
   description:
-    "Personal command centre for a Product & Project Delivery Manager: manage daily work, projects, tasks, follow-ups, meetings, issues, daily logs, and professional achievements.",
+    "Intelligent command centre for Product & Project Delivery Managers: manage daily work, projects, tasks, follow-ups, meetings, issues, daily logs, and achievements.",
   icons: {
     icon: [
       { url: '/logo.svg', type: 'image/svg+xml' },

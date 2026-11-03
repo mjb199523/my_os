@@ -47,7 +47,7 @@ export const INITIAL_ADMIN_MESSAGES: AdminMessage[] = [
     sender_name: 'Manashjyoti Barman (Admin)',
     target_user_id: 'all',
     target_user_name: 'All Users',
-    title: 'Welcome to My Work OS',
+    title: 'Welcome to Nexus OS',
     message: 'Welcome to your unified workspace portal. Track tasks, manage project milestones, and stay aligned with company objectives.',
     priority: 'Announcement',
     created_at: '2026-10-31T09:00:00Z',

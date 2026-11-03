@@ -168,7 +168,7 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
           <div>
             <div className="flex items-center space-x-1.5">
               <span className="font-bold text-slate-900 dark:text-white text-base tracking-tight block">
-                My Work OS
+                Nexus OS
               </span>
               <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 tracking-wider">
                 PRO

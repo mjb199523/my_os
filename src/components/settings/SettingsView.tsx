@@ -301,7 +301,7 @@ export default function SettingsView() {
           <Logo size={44} />
           <div>
             <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-              My Work OS
+              Nexus OS
             </h4>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               Personal Command Centre &bull; Version 2.0.0

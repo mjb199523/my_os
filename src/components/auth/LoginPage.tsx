@@ -63,7 +63,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
             </div>
             <div>
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-                Sign in to My Work OS
+                Sign in to Nexus OS
               </h1>
               <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
                 Role-Based Personal Command Centre &bull; High-Output Workspace
@@ -153,7 +153,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
         {/* Footer info */}
         <p className="text-center text-[11px] text-slate-400 dark:text-slate-500 mt-6 font-medium">
-          My Work OS &bull; Secure Authentication &amp; User Access Management
+          Nexus OS &bull; High-Output Delivery Command Centre
         </p>
       </div>
     </div>
