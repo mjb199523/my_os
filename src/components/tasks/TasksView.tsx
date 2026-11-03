@@ -254,7 +254,7 @@ export default function TasksView() {
               <option value="all">All Users ({users.length})</option>
               {users.map((u) => (
                 <option key={u.id} value={u.id}>
-                  {u.name}
+                  {u.name ? u.name.split(' ')[0] : 'User'}
                 </option>
               ))}
             </select>

@@ -23,6 +23,7 @@ import {
   Send,
   Mail,
   Users,
+  ChevronDown,
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -53,11 +54,17 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
 
-  // Close notifications dropdown on outside click
+  const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
+  const quickAddRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdowns on outside click
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
         setIsNotificationsOpen(false);
+      }
+      if (quickAddRef.current && !quickAddRef.current.contains(event.target as Node)) {
+        setIsQuickAddOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -90,46 +97,37 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
     hour12: true,
   });
 
-  // Dynamic greeting based on time of day
-  const hour = currentDate.getHours();
-  let greetingTime = 'morning';
-  if (hour >= 12 && hour < 17) {
-    greetingTime = 'afternoon';
-  } else if (hour >= 17) {
-    greetingTime = 'evening';
-  }
-
   const firstName = user.name ? user.name.split(' ')[0] : 'User';
 
   return (
     <header className="sticky top-0 z-30 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors">
-      <div className="px-4 sm:px-6 py-3.5 flex items-center justify-between gap-4">
-        {/* Left: Mobile hamburger & Greetings */}
-        <div className="flex items-center space-x-3 min-w-0">
+      <div className="px-4 sm:px-6 py-2.5 flex items-center justify-between gap-3">
+        {/* Left: Mobile hamburger & User Greeting (shows first name cleanly) */}
+        <div className="flex items-center space-x-3 shrink-0">
           <button
             onClick={onToggleSidebar}
-            className="md:hidden p-2 rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
+            className="md:hidden p-2 rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 shrink-0"
             aria-label="Toggle navigation"
           >
             <Menu className="w-5 h-5" />
           </button>
 
-          <div>
-            <div className="flex items-center space-x-2">
+          <div className="shrink-0">
+            <div className="flex items-center space-x-2 whitespace-nowrap">
               <h1 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight">
-                Good {greetingTime}, {firstName} 👋
+                {firstName} 👋
               </h1>
               {user.system_role === 'Admin' ? (
-                <span className="hidden sm:inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300 border border-indigo-200/50 dark:border-indigo-800">
+                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300 border border-indigo-200/50 dark:border-indigo-800 shrink-0">
                   <span>🛡️ Admin</span>
                 </span>
               ) : (
-                <span className="hidden sm:inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-300 border border-blue-200/50 dark:border-blue-800">
+                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-300 border border-blue-200/50 dark:border-blue-800 shrink-0">
                   <span>👤 User</span>
                 </span>
               )}
             </div>
-            <div className="flex items-center space-x-2 text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+            <div className="flex items-center space-x-2 text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5 whitespace-nowrap">
               <span>{formattedDate}</span>
               <span className="text-slate-300 dark:text-slate-600">•</span>
               <div className="inline-flex items-center space-x-1 font-mono font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800/80 px-2 py-0.5 rounded-md border border-slate-200/80 dark:border-slate-700">
@@ -141,78 +139,120 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
           </div>
         </div>
 
-        {/* Center/Right: Quick Action buttons */}
-        <div className="hidden lg:flex items-center space-x-2">
-          <button
-            onClick={() => openQuickAdd('task')}
-            className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-all"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Task</span>
-          </button>
+        {/* Quick Add Split Button (Task + Dropdown for other entities) */}
+        <div className="relative shrink-0" ref={quickAddRef}>
+          <div className="inline-flex items-stretch rounded-lg shadow-xs overflow-hidden border border-blue-600">
+            <button
+              onClick={() => openQuickAdd('task')}
+              className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-all cursor-pointer"
+              title="Quick Add Task"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Task</span>
+            </button>
+            <button
+              onClick={() => setIsQuickAddOpen((prev) => !prev)}
+              className="px-1.5 bg-blue-600 hover:bg-blue-700 text-white border-l border-blue-500 transition-all flex items-center justify-center cursor-pointer"
+              title="More creation options (Follow-up, Meeting, Issue, Note)"
+              aria-label="More creation options"
+            >
+              <ChevronDown
+                className={`w-3.5 h-3.5 transition-transform duration-150 ${
+                  isQuickAddOpen ? 'rotate-180' : ''
+                }`}
+              />
+            </button>
+          </div>
 
-          <button
-            onClick={() => openQuickAdd('followup')}
-            className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:hover:bg-amber-950/70 dark:text-amber-300 border border-amber-200 dark:border-amber-800 transition-all"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Follow-up</span>
-          </button>
-
-          <button
-            onClick={() => openQuickAdd('meeting')}
-            className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:hover:bg-purple-950/70 dark:text-purple-300 border border-purple-200 dark:border-purple-800 transition-all"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Meeting</span>
-          </button>
-
-          <button
-            onClick={() => openQuickAdd('issue')}
-            className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-50 hover:bg-red-100 text-red-700 dark:bg-red-950/40 dark:hover:bg-red-950/70 dark:text-red-300 border border-red-200 dark:border-red-800 transition-all"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Issue</span>
-          </button>
-
-          <button
-            onClick={() => openQuickAdd('note')}
-            className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 transition-all"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Note</span>
-          </button>
+          {/* Quick Add Dropdown Menu */}
+          {isQuickAddOpen && (
+            <div className="absolute left-0 mt-2 w-48 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl py-1.5 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+              <button
+                onClick={() => {
+                  openQuickAdd('task');
+                  setIsQuickAddOpen(false);
+                }}
+                className="w-full flex items-center space-x-2.5 px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-blue-950/50 hover:text-blue-600 dark:hover:text-blue-400 text-left transition-colors cursor-pointer"
+              >
+                <CheckSquare className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                <span>New Task</span>
+              </button>
+              <button
+                onClick={() => {
+                  openQuickAdd('followup');
+                  setIsQuickAddOpen(false);
+                }}
+                className="w-full flex items-center space-x-2.5 px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-amber-50 dark:hover:bg-amber-950/50 hover:text-amber-600 dark:hover:text-amber-400 text-left transition-colors cursor-pointer"
+              >
+                <UserCheck className="w-4 h-4 text-amber-500 shrink-0" />
+                <span>New Follow-up</span>
+              </button>
+              <button
+                onClick={() => {
+                  openQuickAdd('meeting');
+                  setIsQuickAddOpen(false);
+                }}
+                className="w-full flex items-center space-x-2.5 px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-purple-50 dark:hover:bg-purple-950/50 hover:text-purple-600 dark:hover:text-purple-400 text-left transition-colors cursor-pointer"
+              >
+                <Video className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
+                <span>New Meeting</span>
+              </button>
+              <button
+                onClick={() => {
+                  openQuickAdd('issue');
+                  setIsQuickAddOpen(false);
+                }}
+                className="w-full flex items-center space-x-2.5 px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-rose-50 dark:hover:bg-rose-950/50 hover:text-rose-600 dark:hover:text-rose-400 text-left transition-colors cursor-pointer"
+              >
+                <AlertOctagon className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+                <span>New Issue</span>
+              </button>
+              <button
+                onClick={() => {
+                  openQuickAdd('note');
+                  setIsQuickAddOpen(false);
+                }}
+                className="w-full flex items-center space-x-2.5 px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 text-left transition-colors cursor-pointer"
+              >
+                <FileText className="w-4 h-4 text-slate-500 shrink-0" />
+                <span>New Note</span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Admin Data Scope Selector (Everyone vs Individual User) */}
         {isAdmin && users.length > 1 && (
-          <div className="hidden md:flex items-center space-x-2 bg-indigo-50/70 dark:bg-indigo-950/40 px-2.5 py-1.5 rounded-lg border border-indigo-200/60 dark:border-indigo-800/60 text-xs">
+          <div className="hidden sm:flex items-center space-x-1.5 bg-indigo-50/70 dark:bg-indigo-950/40 px-2.5 py-1.5 rounded-lg border border-indigo-200/60 dark:border-indigo-800/60 text-xs shrink-0">
             <Users className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
-            <span className="font-semibold text-indigo-900 dark:text-indigo-200">Scope:</span>
+            <span className="font-semibold text-indigo-900 dark:text-indigo-200 shrink-0">Scope:</span>
             <select
               value={adminUserFilter}
               onChange={(e) => setAdminUserFilter(e.target.value)}
-              className="bg-transparent font-medium text-slate-800 dark:text-slate-100 focus:outline-none cursor-pointer"
+              className="bg-transparent font-medium text-slate-800 dark:text-slate-100 focus:outline-none cursor-pointer max-w-[150px] truncate text-xs"
               title="Filter views across users"
             >
               <option value="all" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
-                👥 Everyone&apos;s Data ({users.length} users)
+                👥 Everyone ({users.length})
               </option>
-              {users.map((u) => (
-                <option key={u.id} value={u.id} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
-                  👤 {u.name} ({u.system_role})
-                </option>
-              ))}
+              {users.map((u) => {
+                const uFirst = u.name ? u.name.split(' ')[0] : u.email.split('@')[0];
+                return (
+                  <option key={u.id} value={u.id} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
+                    👤 {uFirst} ({u.system_role})
+                  </option>
+                );
+              })}
             </select>
           </div>
         )}
 
         {/* Right side: Supabase Sync, Global Search, Notifications, Theme toggle */}
-        <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
+        <div className="flex items-center space-x-2 sm:space-x-2.5 shrink-0">
           {/* Supabase Status / Auth Button */}
           <button
             onClick={() => setIsAuthModalOpen(true)}
-            className={`hidden sm:inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+            className={`hidden md:inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all shrink-0 ${
               isSupabaseConnected
                 ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
                 : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-blue-400'
@@ -220,36 +260,25 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
             title="Configure Supabase Database & Authentication"
           >
             <span
-              className={`w-2 h-2 rounded-full ${
+              className={`w-2 h-2 rounded-full shrink-0 ${
                 isSupabaseConnected ? 'bg-emerald-500' : 'bg-amber-400'
               }`}
             />
-            <span>{isSupabaseConnected ? 'Supabase Synced' : 'Connect Cloud'}</span>
+            <span className="hidden xl:inline">{isSupabaseConnected ? 'Supabase Synced' : 'Connect Cloud'}</span>
           </button>
 
           {/* Global Search trigger */}
           <button
             onClick={() => setIsSearchOpen(true)}
-            className="flex items-center space-x-2 px-3 py-1.5 text-xs font-medium text-slate-500 dark:text-slate-400 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 rounded-lg transition-colors border border-transparent dark:border-slate-700"
+            className="flex items-center space-x-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-500 dark:text-slate-400 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 rounded-lg transition-colors border border-transparent dark:border-slate-700 shrink-0 cursor-pointer"
             title="Search across all entities (Cmd+K)"
           >
-            <Search className="w-3.5 h-3.5" />
+            <Search className="w-3.5 h-3.5 shrink-0" />
             <span className="hidden sm:inline">Search OS</span>
-            <kbd className="hidden sm:inline text-[10px] font-sans px-1.5 py-0.5 rounded bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-400">
+            <kbd className="hidden lg:inline text-[10px] font-sans px-1.5 py-0.5 rounded bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-400">
               ⌘K
             </kbd>
           </button>
-
-          {/* Quick Add icon button for mobile & small screens */}
-          <div className="lg:hidden">
-            <button
-              onClick={() => openQuickAdd('task')}
-              className="p-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
-              title="Add Task"
-            >
-              <Plus className="w-4 h-4" />
-            </button>
-          </div>
 
           {/* Notification Centre Bell */}
           <div className="relative" ref={notifRef}>
