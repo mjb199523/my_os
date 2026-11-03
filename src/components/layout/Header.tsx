@@ -6,8 +6,6 @@ import {
   Search,
   Plus,
   Bell,
-  Sun,
-  Moon,
   Menu,
   CheckCircle2,
   Calendar,
@@ -36,8 +34,6 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
     users,
     adminUserFilter,
     setAdminUserFilter,
-    darkMode,
-    toggleDarkMode,
     setIsSearchOpen,
     openQuickAdd,
     notifications,
@@ -408,20 +404,6 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
               </div>
             )}
           </div>
-
-          {/* Dark Mode Toggle */}
-          <button
-            onClick={toggleDarkMode}
-            className="p-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:text-slate-200 transition-colors"
-            title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-            aria-label="Toggle dark mode"
-          >
-            {darkMode ? (
-              <Sun className="w-4 h-4 text-amber-400" />
-            ) : (
-              <Moon className="w-4 h-4 text-slate-600" />
-            )}
-          </button>
         </div>
       </div>
     </header>

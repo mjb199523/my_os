@@ -50,8 +50,6 @@ interface WorkOSContextType {
   notes: Note[];
   milestones: Milestone[];
   notifications: NotificationItem[];
-  darkMode: boolean;
-  toggleDarkMode: () => void;
   activeTab: string;
   setActiveTab: (tab: string) => void;
   selectedProjectId: string | null;
@@ -209,7 +207,6 @@ const STORAGE_KEY = 'my_work_os_data_v2';
 export function WorkOSProvider({ children }: { children: ReactNode }) {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
-  const [darkMode, setDarkMode] = useState<boolean>(false);
 
   // Modals state
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -365,10 +362,9 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
   // 1. Initial Load & Setup
   useEffect(() => {
     try {
-      const savedTheme = localStorage.getItem('my_work_os_theme');
-      if (savedTheme === 'dark') {
-        setDarkMode(true);
-        document.documentElement.classList.add('dark');
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('my_work_os_theme');
+        document.documentElement.classList.remove('dark');
       }
 
       const sessionAuth = localStorage.getItem('my_work_os_authenticated');
@@ -615,21 +611,6 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
       authListener?.subscription.unsubscribe();
     };
   }, [isSupabaseConnected]);
-
-  // Dark mode toggle
-  const toggleDarkMode = () => {
-    setDarkMode((prev) => {
-      const next = !prev;
-      if (next) {
-        document.documentElement.classList.add('dark');
-        localStorage.setItem('my_work_os_theme', 'dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-        localStorage.setItem('my_work_os_theme', 'light');
-      }
-      return next;
-    });
-  };
 
   // Keyboard shortcut: Cmd/Ctrl + K for Global Search
   useEffect(() => {
@@ -2204,8 +2185,6 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
         composeTargetUserId,
         openComposeMessage,
         closeComposeMessage,
-        darkMode,
-        toggleDarkMode,
         activeTab,
         setActiveTab,
         selectedProjectId,
