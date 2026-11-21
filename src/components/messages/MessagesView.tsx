@@ -44,7 +44,9 @@ export default function MessagesView() {
   const [isSending, setIsSending] = useState(false);
   const [replyError, setReplyError] = useState<string | null>(null);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const threadContainerRef = useRef<HTMLDivElement>(null);
+  const prevConversationIdRef = useRef<string | null>(null);
+  const prevMessageCountRef = useRef<number>(0);
 
   const personalCount = useMemo(() => conversations.filter((c) => !c.is_broadcast).length, [conversations]);
   const broadcastCount = useMemo(() => conversations.filter((c) => c.is_broadcast).length, [conversations]);
@@ -62,17 +64,46 @@ export default function MessagesView() {
     return conversations.find((c) => c.id === activeConversationId) || null;
   }, [conversations, activeConversationId]);
 
-  // Mark active conversation read upon viewing
+  // Mark active conversation read upon viewing (only when unread messages exist)
+  const activeUnreadCount = activeConversation?.unread_count || 0;
   useEffect(() => {
-    if (activeConversationId && activeConversation && activeConversation.unread_count > 0) {
+    if (activeConversationId && activeUnreadCount > 0) {
       markConversationRead(activeConversationId);
     }
-  }, [activeConversationId, activeConversation, markConversationRead]);
+  }, [activeConversationId, activeUnreadCount, markConversationRead]);
 
-  // Auto-scroll to bottom of thread when messages change
+  // Controlled scrolling that prevents jitter/glittering and allows smooth manual scrolling
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [activeConversation?.messages]);
+    if (!activeConversation) return;
+
+    const container = threadContainerRef.current;
+    if (!container) return;
+
+    const currentConvId = activeConversation.id;
+    const currentMsgCount = activeConversation.messages.length;
+
+    const isDifferentConversation = prevConversationIdRef.current !== currentConvId;
+    const hasNewMessage = prevConversationIdRef.current === currentConvId && currentMsgCount > prevMessageCountRef.current;
+
+    if (isDifferentConversation) {
+      // Switched conversation: snap directly to bottom without fighting user
+      container.scrollTop = container.scrollHeight;
+      prevConversationIdRef.current = currentConvId;
+      prevMessageCountRef.current = currentMsgCount;
+    } else if (hasNewMessage) {
+      // New message added: smooth scroll down only if user is already near bottom or sent the message
+      const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 200;
+      const lastMsgIsMe = activeConversation.last_message?.sender_id === user?.id;
+
+      if (isNearBottom || lastMsgIsMe) {
+        container.scrollTo({
+          top: container.scrollHeight,
+          behavior: 'smooth',
+        });
+      }
+      prevMessageCountRef.current = currentMsgCount;
+    }
+  }, [activeConversation?.id, activeConversation?.messages?.length, user?.id]);
 
   // Filtered conversation list
   const filteredConversations = useMemo(() => {
@@ -99,6 +130,10 @@ export default function MessagesView() {
   const handleSendReply = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!activeConversation || !replyText.trim() || isSending || !user) return;
+    if (activeConversation.is_broadcast) {
+      setReplyError('Broadcast announcements are one-way notices and do not accept replies.');
+      return;
+    }
 
     setReplyError(null);
     setIsSending(true);
@@ -324,16 +359,12 @@ export default function MessagesView() {
 
                     <div className="flex items-center gap-1.5 mb-1">
                       {conv.is_broadcast ? (
-                        <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-purple-100 text-purple-700">
-                          📢 Broadcast
-                        </span>
-                      ) : conv.messages.length > 1 ? (
-                        <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-700">
-                          💬 {conv.messages.length} msgs
+                        <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300">
+                          📢 Broadcast (One-Way)
                         </span>
                       ) : (
-                        <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-blue-100 text-blue-700">
-                          🔒 Personal
+                        <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300">
+                          🔒 Personal (2-Way)
                         </span>
                       )}
 
@@ -382,7 +413,7 @@ export default function MessagesView() {
                 </button>
 
                 <div className="w-9 h-9 rounded-xl bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 flex items-center justify-center font-bold text-sm uppercase shrink-0">
-                  {activeConversation.is_broadcast ? <Megaphone className="w-4 h-4" /> : activeConversation.other_participant_name.charAt(0)}
+                  {activeConversation.is_broadcast ? <Megaphone className="w-4 h-4 text-purple-600" /> : activeConversation.other_participant_name.charAt(0)}
                 </div>
 
                 <div className="min-w-0">
@@ -393,8 +424,14 @@ export default function MessagesView() {
                     {getPriorityBadge(activeConversation.priority)}
                   </div>
                   <p className="text-[11px] text-slate-500 truncate">
-                    With: <span className="font-semibold text-slate-700 dark:text-slate-300">{activeConversation.other_participant_name}</span>
-                    {activeConversation.other_participant?.role ? ` (${activeConversation.other_participant.role})` : ''}
+                    {activeConversation.is_broadcast ? (
+                      <span className="font-semibold text-purple-600 dark:text-purple-400">One-Way Broadcast (All Users)</span>
+                    ) : (
+                      <>
+                        2-Way Personal with: <span className="font-semibold text-slate-700 dark:text-slate-300">{activeConversation.other_participant_name}</span>
+                        {activeConversation.other_participant?.role ? ` (${activeConversation.other_participant.role})` : ''}
+                      </>
+                    )}
                   </p>
                 </div>
               </div>
@@ -418,23 +455,11 @@ export default function MessagesView() {
               )}
             </div>
 
-            {/* Root Broadcast Context Banner (if this thread is a reply to a broadcast) */}
-            {activeConversation.messages.length > 0 && activeConversation.messages[0].target_user_id === 'all' && (
-              <div className="px-5 py-2.5 bg-purple-50/70 dark:bg-purple-950/30 border-b border-purple-100 dark:border-purple-900/40 flex items-start space-x-2 text-xs text-purple-900 dark:text-purple-200">
-                <Megaphone className="w-4 h-4 shrink-0 text-purple-600 mt-0.5" />
-                <div className="min-w-0">
-                  <p className="font-semibold text-[11px]">
-                    Announcement Thread
-                  </p>
-                  <p className="text-[11px] text-purple-700 dark:text-purple-300 truncate">
-                    {activeConversation.messages[0].title}: {activeConversation.messages[0].message}
-                  </p>
-                </div>
-              </div>
-            )}
-
             {/* Message Thread Feed */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+            <div
+              ref={threadContainerRef}
+              className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 overscroll-contain select-text"
+            >
               {activeConversation.messages.map((msg: AdminMessage, idx: number) => {
                 const isMe = msg.sender_id === user?.id;
                 const isBroadcastRoot = msg.target_user_id === 'all';
@@ -496,53 +521,93 @@ export default function MessagesView() {
                   </div>
                 );
               })}
-              <div ref={messagesEndRef} />
             </div>
 
-            {/* Reply Input Bar */}
-            <div className="p-3 sm:p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/60">
-              {replyError && (
-                <div className="mb-2 p-2 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-xs flex items-center space-x-1.5">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{replyError}</span>
-                </div>
-              )}
-
-              <form onSubmit={handleSendReply} className="flex items-end space-x-2">
-                <div className="flex-1 relative">
-                  <textarea
-                    rows={2}
-                    value={replyText}
-                    onChange={(e) => setReplyText(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                        e.preventDefault();
-                        handleSendReply();
-                      }
-                    }}
-                    placeholder={`Reply to ${activeConversation.other_participant_name}... (Press Ctrl+Enter to send)`}
-                    className="w-full p-2.5 text-xs sm:text-sm rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all resize-none font-medium"
-                  />
+            {/* Bottom Bar: One-Way Broadcast Notice vs Two-Way Reply Input */}
+            {activeConversation.is_broadcast ? (
+              <div className="p-4 border-t border-purple-200/70 dark:border-purple-900/40 bg-purple-50/60 dark:bg-purple-950/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div className="flex items-center space-x-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-purple-100 dark:bg-purple-900/60 text-purple-600 flex items-center justify-center shrink-0 shadow-2xs">
+                    <Megaphone className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-slate-900 dark:text-white">
+                      One-Way Broadcast Announcement
+                    </p>
+                    <p className="text-[11px] text-purple-700 dark:text-purple-300">
+                      {isAdmin
+                        ? 'This announcement was broadcast to all portal users. Broadcast messages are one-way notices.'
+                        : 'Official broadcast notice from Administrator. Broadcast messages are read-only and do not accept replies.'}
+                    </p>
+                  </div>
                 </div>
 
-                <button
-                  type="submit"
-                  disabled={!replyText.trim() || isSending}
-                  className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs shadow-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1.5 shrink-0 cursor-pointer h-10"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                  <span>{isSending ? 'Sending...' : 'Reply'}</span>
-                </button>
-              </form>
-
-              <div className="mt-1.5 flex items-center justify-between text-[11px] text-slate-400">
-                <span className="flex items-center gap-1">
-                  <Shield className="w-3 h-3 text-indigo-500" />
-                  <span>Strict role-based privacy active. Replies are never visible to other users.</span>
-                </span>
-                <span className="hidden sm:inline">Ctrl + Enter to send</span>
+                {!isAdmin ? (
+                  <button
+                    type="button"
+                    onClick={() => openComposeMessage()}
+                    className="inline-flex items-center justify-center space-x-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer shrink-0"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    <span>Message Admin (2-Way)</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => openComposeMessage()}
+                    className="inline-flex items-center justify-center space-x-1.5 px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer shrink-0"
+                  >
+                    <Megaphone className="w-3.5 h-3.5" />
+                    <span>New Announcement</span>
+                  </button>
+                )}
               </div>
-            </div>
+            ) : (
+              /* Reply Input Bar for Personal 2-Way Conversations */
+              <div className="p-3 sm:p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/60">
+                {replyError && (
+                  <div className="mb-2 p-2 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-xs flex items-center space-x-1.5">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{replyError}</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleSendReply} className="flex items-end space-x-2">
+                  <div className="flex-1 relative">
+                    <textarea
+                      rows={2}
+                      value={replyText}
+                      onChange={(e) => setReplyText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                          e.preventDefault();
+                          handleSendReply();
+                        }
+                      }}
+                      placeholder={`Reply to ${activeConversation.other_participant_name}... (Press Ctrl+Enter to send)`}
+                      className="w-full p-2.5 text-xs sm:text-sm rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all resize-none font-medium"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={!replyText.trim() || isSending}
+                    className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs shadow-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1.5 shrink-0 cursor-pointer h-10"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>{isSending ? 'Sending...' : 'Reply'}</span>
+                  </button>
+                </form>
+
+                <div className="mt-1.5 flex items-center justify-between text-[11px] text-slate-400">
+                  <span className="flex items-center gap-1">
+                    <Shield className="w-3 h-3 text-indigo-500" />
+                    <span>Personal 2-Way conversation active. Strictly confidential between you and {activeConversation.other_participant_name}.</span>
+                  </span>
+                  <span className="hidden sm:inline">Ctrl + Enter to send</span>
+                </div>
+              </div>
+            )}
           </>
         ) : (
           /* Empty Thread Selection State */

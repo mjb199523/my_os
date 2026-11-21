@@ -1932,12 +1932,14 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
     for (const msg of visibleMessages) {
       let convKey = msg.conversation_id;
 
-      // Unify 1-on-1 personal messages between the same two users into a single thread
+      // Broadcasts are one-way standalone announcements (each broadcast message has its own convKey)
       const isBroadcast = msg.target_user_id === 'all' || msg.message_type === 'broadcast';
-      const isBroadcastReply = msg.parent_id != null && visibleMessages.some((m) => m.id === msg.parent_id && (m.target_user_id === 'all' || m.message_type === 'broadcast'));
 
-      if (!isBroadcast && !isBroadcastReply) {
+      if (!isBroadcast) {
+        // Direct 1-on-1 personal messages between the two users are grouped into a single 2-way conversation
         convKey = `conv_direct_${[msg.sender_id, msg.target_user_id].sort().join('_')}`;
+      } else {
+        convKey = msg.conversation_id || `conv_broadcast_${msg.id}`;
       }
 
       if (!convMap.has(convKey)) {
@@ -1948,17 +1950,6 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
         conversation_id: convKey,
       });
     }
-
-    // Attach root broadcast if conversation is a private reply thread to a broadcast
-    convMap.forEach((msgs) => {
-      const firstMsg = msgs[0];
-      if (firstMsg?.parent_id) {
-        const parentMsg = visibleMessages.find((m) => m.id === firstMsg.parent_id);
-        if (parentMsg && !msgs.some((m) => m.id === parentMsg.id)) {
-          msgs.unshift(parentMsg);
-        }
-      }
-    });
 
     const result: Conversation[] = [];
 
@@ -2174,8 +2165,21 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
     // Strict Role-Based Communication Permission Checks:
     if (!isAdmin) {
       // Standard Users are NEVER allowed to broadcast
-      if (payload.target_user_id === 'all') {
+      if (payload.target_user_id === 'all' || payload.message_type === 'broadcast') {
         return { success: false, error: 'Permission denied: Standard users cannot send broadcast messages.' };
+      }
+      // Standard Users are NEVER allowed to reply to a broadcast
+      if (payload.conversation_id) {
+        const targetConv = conversations.find((c) => c.id === payload.conversation_id);
+        if (targetConv && targetConv.is_broadcast) {
+          return { success: false, error: 'Broadcast announcements are one-way notices and do not accept replies.' };
+        }
+      }
+      if (payload.parent_id) {
+        const parentMsg = adminMessages.find((m) => m.id === payload.parent_id);
+        if (parentMsg && (parentMsg.target_user_id === 'all' || parentMsg.message_type === 'broadcast')) {
+          return { success: false, error: 'Broadcast announcements are one-way notices and do not accept replies.' };
+        }
       }
       // Standard Users are NEVER allowed to message other Standard Users
       const targetUser = users.find((u) => u.id === payload.target_user_id);
@@ -2200,29 +2204,14 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
     let convId = payload.conversation_id;
 
     if (!convId) {
-      if (payload.parent_id) {
-        const parent = adminMessages.find((m) => m.id === payload.parent_id);
-        if (parent && parent.target_user_id === 'all') {
-          // Replying to a broadcast creates a separate private conversation thread
-          convId = `conv_${parent.id}_${user.id}`;
-          msgType = 'reply';
-          // Ensure recipient is the Admin who authored the broadcast
-          finalTargetId = parent.sender_id;
-          finalTargetName = parent.sender_name;
-        } else if (parent) {
-          convId = parent.conversation_id || parent.id;
-          msgType = 'reply';
-        } else {
-          convId = `conv_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-        }
-      } else if (finalTargetId !== 'all') {
-        // Direct 1-on-1 personal message between this user and finalTargetId
-        convId = `conv_direct_${[user.id, finalTargetId].sort().join('_')}`;
-        msgType = 'personal';
-      } else {
+      if (finalTargetId === 'all') {
         // Broadcast
         convId = `conv_broadcast_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
         msgType = 'broadcast';
+      } else {
+        // Direct 1-on-1 personal message between this user and finalTargetId
+        convId = `conv_direct_${[user.id, finalTargetId].sort().join('_')}`;
+        msgType = payload.parent_id ? 'reply' : 'personal';
       }
     }
 
