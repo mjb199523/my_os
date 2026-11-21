@@ -205,17 +205,39 @@ export interface Milestone {
 
 export type MessagePriority = 'Normal' | 'Important' | 'Urgent' | 'Announcement';
 
+export type MessageType = 'broadcast' | 'personal' | 'user_initiated' | 'reply';
+
 export interface AdminMessage {
   id: string;
+  conversation_id: string; // Links messages within a conversation thread
+  parent_id?: string | null; // Direct parent message if this is a reply
   sender_id: string;
   sender_name: string;
-  target_user_id: string; // 'all' or specific user id
+  target_user_id: string; // 'all' for broadcast, or specific user id
   target_user_name?: string; // 'All Users' or specific user name
   title: string;
   message: string;
   priority: MessagePriority;
+  message_type: MessageType; // 'broadcast' | 'personal' | 'user_initiated' | 'reply'
   created_at: string;
   read_by: string[]; // User IDs who have marked it as read
+}
+
+export interface Conversation {
+  id: string; // conversation_id
+  root_message_id: string;
+  title: string;
+  message_type: MessageType;
+  priority: MessagePriority;
+  created_at: string;
+  updated_at: string;
+  messages: AdminMessage[];
+  last_message: AdminMessage;
+  participant_ids: string[];
+  other_participant?: User;
+  other_participant_name: string;
+  is_broadcast: boolean;
+  unread_count: number;
 }
 
 export interface NotificationItem {
@@ -224,6 +246,7 @@ export interface NotificationItem {
   message: string;
   type: 'admin_message' | 'task_due' | 'task_overdue' | 'followup_due' | 'meeting' | 'blocker';
   target_id?: string;
+  conversation_id?: string;
   timestamp: string;
   read: boolean;
   priority?: MessagePriority;

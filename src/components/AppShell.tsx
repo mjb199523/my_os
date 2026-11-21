@@ -18,6 +18,7 @@ import AchievementsView from '@/components/achievements/AchievementsView';
 import NotesView from '@/components/notes/NotesView';
 import SettingsView from '@/components/settings/SettingsView';
 import UsersView from '@/components/users/UsersView';
+import MessagesView from '@/components/messages/MessagesView';
 import LoginPage from '@/components/auth/LoginPage';
 
 // Modals
@@ -48,6 +49,8 @@ function AppContent() {
     switch (activeTab) {
       case 'dashboard':
         return <DashboardView />;
+      case 'messages':
+        return <MessagesView />;
       case 'tasks':
         return <TasksView />;
       case 'projects':

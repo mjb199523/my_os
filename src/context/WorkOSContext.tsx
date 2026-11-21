@@ -15,6 +15,8 @@ import {
   Milestone,
   NotificationItem,
   AdminMessage,
+  Conversation,
+  MessageType,
   MessagePriority,
   TaskStatus,
   FollowupStatus,
@@ -162,9 +164,22 @@ interface WorkOSContextType {
   deletePortalUser: (id: string) => Promise<{ success: boolean; error?: string }>;
   loginWithCredentials: (email: string, pass: string) => Promise<{ success: boolean; error?: string; user?: User }>;
 
-  // Admin Messages & Notification Centre
+  // Two-Way Messages & Conversations
   adminMessages: AdminMessage[];
+  conversations: Conversation[];
+  activeConversationId: string | null;
+  setActiveConversationId: (id: string | null) => void;
+  unreadMessagesCount: number;
   unreadNotificationsCount: number;
+  sendMessage: (payload: {
+    target_user_id: string;
+    title?: string;
+    message: string;
+    priority?: MessagePriority;
+    conversation_id?: string;
+    parent_id?: string;
+    message_type?: MessageType;
+  }) => Promise<{ success: boolean; message?: AdminMessage; error?: string }>;
   sendAdminMessage: (payload: {
     target_user_id: string;
     title: string;
@@ -172,6 +187,7 @@ interface WorkOSContextType {
     priority?: MessagePriority;
   }) => Promise<{ success: boolean; error?: string }>;
   deleteAdminMessage: (id: string) => Promise<{ success: boolean; error?: string }>;
+  markConversationRead: (conversationId: string) => Promise<void>;
   isComposeMessageOpen: boolean;
   setIsComposeMessageOpen: (open: boolean) => void;
   composeTargetUserId?: string;
@@ -217,6 +233,7 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
   const [historyTask, setHistoryTask] = useState<Task | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [adminMessages, setAdminMessages] = useState<AdminMessage[]>(INITIAL_ADMIN_MESSAGES);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [isComposeMessageOpen, setIsComposeMessageOpen] = useState(false);
   const [composeTargetUserId, setComposeTargetUserId] = useState<string | undefined>(undefined);
 
@@ -1891,21 +1908,142 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // UNIDIRECTIONAL ADMIN NOTIFICATIONS (Admin -> Users)
-  // Strict recipient delivery: Broadcast ('all') goes to everyone, individual goes ONLY to selected recipient
+  // TWO-WAY MESSAGING & CONVERSATIONS
+  // Normalizes messages, groups them by conversation thread, and enforces strict communication boundaries
+  const conversations: Conversation[] = useMemo(() => {
+    if (!user?.id) return [];
+
+    // Filter messages visible to current user
+    const visibleMessages = adminMessages
+      .map((m) => ({
+        ...m,
+        conversation_id: m.conversation_id || m.id,
+        message_type: m.message_type || (m.target_user_id === 'all' ? 'broadcast' : 'personal'),
+      }))
+      .filter((m) => {
+        if (isAdmin) return true;
+        // Standard user can only see broadcasts, messages addressed to them, or messages sent by them
+        return m.target_user_id === 'all' || m.target_user_id === user.id || m.sender_id === user.id;
+      });
+
+    // Group into conversation buckets
+    const convMap = new Map<string, AdminMessage[]>();
+
+    for (const msg of visibleMessages) {
+      const convKey = msg.conversation_id;
+      if (!convMap.has(convKey)) {
+        convMap.set(convKey, []);
+      }
+      convMap.get(convKey)!.push(msg);
+    }
+
+    // Attach root broadcast if conversation is a private reply thread to a broadcast
+    convMap.forEach((msgs) => {
+      const firstMsg = msgs[0];
+      if (firstMsg?.parent_id) {
+        const parentMsg = visibleMessages.find((m) => m.id === firstMsg.parent_id);
+        if (parentMsg && !msgs.some((m) => m.id === parentMsg.id)) {
+          msgs.unshift(parentMsg);
+        }
+      }
+    });
+
+    const result: Conversation[] = [];
+
+    convMap.forEach((msgs, convId) => {
+      // Sort chronologically within the conversation
+      msgs.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+      const rootMessage = msgs[0];
+      const lastMessage = msgs[msgs.length - 1];
+
+      // Determine counterparty info
+      let otherUserId = '';
+      let otherUserName = '';
+
+      if (rootMessage.target_user_id === 'all') {
+        if (isAdmin) {
+          // If this is a reply thread to a broadcast
+          const replyUserMsg = msgs.find((m) => m.sender_id !== user.id && m.target_user_id !== 'all');
+          if (replyUserMsg) {
+            otherUserId = replyUserMsg.sender_id;
+            otherUserName = replyUserMsg.sender_name;
+          } else {
+            otherUserId = 'all';
+            otherUserName = 'All Users (Broadcast)';
+          }
+        } else {
+          otherUserId = rootMessage.sender_id;
+          otherUserName = rootMessage.sender_name;
+        }
+      } else {
+        if (rootMessage.sender_id === user.id) {
+          otherUserId = rootMessage.target_user_id;
+          otherUserName = rootMessage.target_user_name || 'Administrator';
+        } else {
+          otherUserId = rootMessage.sender_id;
+          otherUserName = rootMessage.sender_name;
+        }
+      }
+
+      const otherUserObj = users.find((u) => u.id === otherUserId);
+
+      // Unread count for current user
+      const unreadCount = msgs.filter((m) => {
+        if (m.sender_id === user.id) return false;
+        return !m.read_by.includes(user.id);
+      }).length;
+
+      result.push({
+        id: convId,
+        root_message_id: rootMessage.id,
+        title: rootMessage.title || 'Conversation',
+        message_type: rootMessage.message_type,
+        priority: rootMessage.priority || 'Normal',
+        created_at: rootMessage.created_at,
+        updated_at: lastMessage.created_at,
+        messages: msgs,
+        last_message: lastMessage,
+        participant_ids: Array.from(new Set(msgs.flatMap((m) => [m.sender_id, m.target_user_id]))),
+        other_participant: otherUserObj,
+        other_participant_name: otherUserName || 'Administrator',
+        is_broadcast: rootMessage.target_user_id === 'all' && msgs.length === 1,
+        unread_count: unreadCount,
+      });
+    });
+
+    // Sort conversations by newest activity
+    result.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+
+    return result;
+  }, [adminMessages, user?.id, isAdmin, users]);
+
+  const unreadMessagesCount = useMemo(() => {
+    return conversations.reduce((acc, conv) => acc + conv.unread_count, 0);
+  }, [conversations]);
+
+  // DERIVED NOTIFICATIONS (Triggers for broadcasts, direct messages, and replies)
   const notifications: NotificationItem[] = useMemo(() => {
     if (!user?.id) return [];
 
-    const relevant = adminMessages.filter((msg) => {
-      // 1. In case of 'all', the message is sent to all
-      if (msg.target_user_id === 'all') return true;
+    const relevant = adminMessages
+      .map((m) => ({
+        ...m,
+        conversation_id: m.conversation_id || m.id,
+        message_type: m.message_type || (m.target_user_id === 'all' ? 'broadcast' : 'personal'),
+      }))
+      .filter((msg) => {
+        // Never notify sender of their own sent message
+        if (msg.sender_id === user.id) return false;
 
-      // 2. Direct message goes ONLY to the specifically selected user
-      if (msg.target_user_id === user.id) return true;
+        // 1. Broadcast goes to everyone except the sender
+        if (msg.target_user_id === 'all') return true;
 
-      // When this user is not selected, do not deliver to them
-      return false;
-    });
+        // 2. Direct message or reply goes to targeted recipient
+        if (msg.target_user_id === user.id) return true;
+
+        return false;
+      });
 
     return relevant.map((msg) => {
       const isRead = msg.read_by.includes(user.id);
@@ -1915,6 +2053,7 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
         message: msg.message,
         type: 'admin_message' as const,
         target_id: msg.id,
+        conversation_id: msg.conversation_id,
         timestamp: new Date(msg.created_at).toLocaleDateString(undefined, {
           month: 'short',
           day: 'numeric',
@@ -1956,6 +2095,29 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
     );
   };
 
+  const markConversationRead = async (conversationId: string): Promise<void> => {
+    if (!user?.id) return;
+
+    setAdminMessages((prev) =>
+      prev.map((m) => {
+        const matches = m.conversation_id === conversationId || m.id === conversationId;
+        if (matches && !m.read_by.includes(user.id)) {
+          const updatedReadBy = [...m.read_by, user.id];
+          const client = getSupabase();
+          if (client) {
+            Promise.resolve(
+              client.from('admin_messages').update({ read_by: updatedReadBy }).eq('id', m.id)
+            ).catch((err) => {
+              console.warn('Supabase mark conversation read error:', err);
+            });
+          }
+          return { ...m, read_by: updatedReadBy };
+        }
+        return m;
+      })
+    );
+  };
+
   const clearAllNotifications = () => {
     setAdminMessages((prev) =>
       prev.map((msg) => {
@@ -1976,6 +2138,125 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
     );
   };
 
+  // SEND TWO-WAY MESSAGE ENGINE (Admin & Standard Users)
+  const sendMessage = async (payload: {
+    target_user_id: string;
+    title?: string;
+    message: string;
+    priority?: MessagePriority;
+    conversation_id?: string;
+    parent_id?: string;
+    message_type?: MessageType;
+  }): Promise<{ success: boolean; message?: AdminMessage; error?: string }> => {
+    if (!user?.id) {
+      return { success: false, error: 'User must be authenticated to send messages.' };
+    }
+
+    const trimmedText = payload.message.trim();
+    if (!trimmedText) {
+      return { success: false, error: 'Message content cannot be empty.' };
+    }
+
+    // Strict Role-Based Communication Permission Checks:
+    if (!isAdmin) {
+      // Standard Users are NEVER allowed to broadcast
+      if (payload.target_user_id === 'all') {
+        return { success: false, error: 'Permission denied: Standard users cannot send broadcast messages.' };
+      }
+      // Standard Users are NEVER allowed to message other Standard Users
+      const targetUser = users.find((u) => u.id === payload.target_user_id);
+      if (!targetUser || targetUser.system_role !== 'Admin') {
+        return {
+          success: false,
+          error: 'Communication restricted: Standard users may only communicate with Workspace Administrators.',
+        };
+      }
+    }
+
+    let finalTargetId = payload.target_user_id;
+    let finalTargetName = 'All Users';
+
+    if (finalTargetId !== 'all') {
+      const target = users.find((u) => u.id === finalTargetId);
+      finalTargetName = target ? target.name : 'Selected User';
+    }
+
+    // Resolve conversation ID & message type
+    let msgType: MessageType = payload.message_type || (finalTargetId === 'all' ? 'broadcast' : 'personal');
+    let convId = payload.conversation_id;
+
+    if (!convId) {
+      if (payload.parent_id) {
+        const parent = adminMessages.find((m) => m.id === payload.parent_id);
+        if (parent && parent.target_user_id === 'all') {
+          // Replying to a broadcast creates a separate private conversation thread
+          convId = `conv_${parent.id}_${user.id}`;
+          msgType = 'reply';
+          // Ensure recipient is the Admin who authored the broadcast
+          finalTargetId = parent.sender_id;
+          finalTargetName = parent.sender_name;
+        } else if (parent) {
+          convId = parent.conversation_id || parent.id;
+          msgType = 'reply';
+        } else {
+          convId = `conv_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+        }
+      } else {
+        convId = `conv_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+        if (!isAdmin) {
+          msgType = 'user_initiated';
+        }
+      }
+    }
+
+    const newMsgId = `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const titleText = payload.title?.trim() || (payload.parent_id ? 'Re: Message' : 'Direct Message');
+
+    const newMsg: AdminMessage = {
+      id: newMsgId,
+      conversation_id: convId,
+      parent_id: payload.parent_id || null,
+      sender_id: user.id,
+      sender_name: `${user.name}${isAdmin ? ' (Admin)' : ''}`,
+      target_user_id: finalTargetId,
+      target_user_name: finalTargetName,
+      title: titleText,
+      message: trimmedText,
+      priority: payload.priority || 'Normal',
+      message_type: msgType,
+      created_at: new Date().toISOString(),
+      read_by: [user.id],
+    };
+
+    setAdminMessages((prev) => [newMsg, ...prev]);
+
+    const client = getSupabase();
+    if (client) {
+      try {
+        await client.from('admin_messages').insert({
+          id: newMsg.id,
+          conversation_id: newMsg.conversation_id,
+          parent_id: newMsg.parent_id,
+          sender_id: newMsg.sender_id,
+          sender_name: newMsg.sender_name,
+          target_user_id: newMsg.target_user_id,
+          target_user_name: newMsg.target_user_name,
+          title: newMsg.title,
+          message: newMsg.message,
+          priority: newMsg.priority,
+          message_type: newMsg.message_type,
+          read_by: newMsg.read_by,
+          created_at: newMsg.created_at,
+        });
+      } catch (err) {
+        console.warn('Supabase remote message insert error:', err);
+      }
+    }
+
+    return { success: true, message: newMsg };
+  };
+
+  // Backwards-compatible Admin wrapper
   const sendAdminMessage = async (payload: {
     target_user_id: string;
     title: string;
@@ -1985,53 +2266,8 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
     if (!isAdmin) {
       return { success: false, error: 'Access denied: Only administrators can broadcast or send notifications.' };
     }
-
-    if (!payload.title.trim() || !payload.message.trim()) {
-      return { success: false, error: 'Title and message cannot be empty.' };
-    }
-
-    let targetName = 'All Users';
-    if (payload.target_user_id !== 'all') {
-      const target = users.find((u) => u.id === payload.target_user_id);
-      targetName = target ? target.name : 'Selected User';
-    }
-
-    const newMessage: AdminMessage = {
-      id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-      sender_id: user.id,
-      sender_name: `${user.name} (Admin)`,
-      target_user_id: payload.target_user_id,
-      target_user_name: targetName,
-      title: payload.title.trim(),
-      message: payload.message.trim(),
-      priority: payload.priority || 'Normal',
-      created_at: new Date().toISOString(),
-      read_by: [],
-    };
-
-    setAdminMessages((prev) => [newMessage, ...prev]);
-
-    const client = getSupabase();
-    if (client) {
-      try {
-        await client.from('admin_messages').insert({
-          id: newMessage.id,
-          sender_id: user.id,
-          sender_name: newMessage.sender_name,
-          target_user_id: payload.target_user_id,
-          target_user_name: newMessage.target_user_name,
-          title: newMessage.title,
-          message: newMessage.message,
-          priority: newMessage.priority,
-          read_by: newMessage.read_by,
-          created_at: newMessage.created_at,
-        });
-      } catch (err) {
-        console.warn('Supabase remote admin message insert skipped/error:', err);
-      }
-    }
-
-    return { success: true };
+    const res = await sendMessage(payload);
+    return { success: res.success, error: res.error };
   };
 
   const deleteAdminMessage = async (id: string): Promise<{ success: boolean; error?: string }> => {
@@ -2039,7 +2275,7 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
       return { success: false, error: 'Access denied: Only administrators can delete notifications.' };
     }
 
-    setAdminMessages((prev) => prev.filter((m) => m.id !== id));
+    setAdminMessages((prev) => prev.filter((m) => m.id !== id && m.conversation_id !== id));
 
     const client = getSupabase();
     if (client) {
@@ -2185,8 +2421,14 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
         notifications,
         unreadNotificationsCount,
         adminMessages,
+        conversations,
+        activeConversationId,
+        setActiveConversationId,
+        unreadMessagesCount,
+        sendMessage,
         sendAdminMessage,
         deleteAdminMessage,
+        markConversationRead,
         isComposeMessageOpen,
         setIsComposeMessageOpen,
         composeTargetUserId,

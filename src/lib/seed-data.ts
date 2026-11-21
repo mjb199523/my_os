@@ -43,6 +43,8 @@ export const CURRENT_USER: User = INITIAL_USERS[0];
 export const INITIAL_ADMIN_MESSAGES: AdminMessage[] = [
   {
     id: 'msg_init_001',
+    conversation_id: 'msg_init_001',
+    parent_id: null,
     sender_id: 'usr_manash_001',
     sender_name: 'Manashjyoti Barman (Admin)',
     target_user_id: 'all',
@@ -50,6 +52,7 @@ export const INITIAL_ADMIN_MESSAGES: AdminMessage[] = [
     title: 'Welcome to Nexus OS',
     message: 'Welcome to your unified workspace portal. Track tasks, manage project milestones, and stay aligned with company objectives.',
     priority: 'Announcement',
+    message_type: 'broadcast',
     created_at: '2026-10-31T09:00:00Z',
     read_by: [],
   },

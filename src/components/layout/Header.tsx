@@ -47,6 +47,7 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
     isAdmin,
     openComposeMessage,
     setActiveTab,
+    setActiveConversationId,
     isSupabaseConnected,
     setIsAuthModalOpen,
   } = useWorkOS();
@@ -439,14 +440,29 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
                                 From: <span className="font-semibold text-slate-600 dark:text-slate-300">{item.sender_name || 'Administrator'}</span>
                               </span>
 
-                              {!item.read && (
+                              <div className="flex items-center space-x-2">
                                 <button
-                                  onClick={() => markNotificationRead(item.id)}
+                                  onClick={() => {
+                                    markNotificationRead(item.id);
+                                    setIsNotificationsOpen(false);
+                                    setActiveTab('messages');
+                                    if (item.conversation_id) {
+                                      setActiveConversationId(item.conversation_id);
+                                    }
+                                  }}
                                   className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
                                 >
-                                  Mark as read
+                                  Open & Reply
                                 </button>
-                              )}
+                                {!item.read && (
+                                  <button
+                                    onClick={() => markNotificationRead(item.id)}
+                                    className="text-[10px] text-slate-500 hover:underline cursor-pointer"
+                                  >
+                                    Mark read
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -515,20 +531,45 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
                               <span className="text-[10px] text-slate-400">
                                 Priority: {msg.priority}
                               </span>
-                              <button
-                                onClick={() => deleteAdminMessage(msg.id)}
-                                className="text-[10px] text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 flex items-center space-x-1 cursor-pointer"
-                                title="Delete this sent message"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                                <span>Delete</span>
-                              </button>
+                              <div className="flex items-center space-x-2">
+                                <button
+                                  onClick={() => {
+                                    setIsNotificationsOpen(false);
+                                    setActiveTab('messages');
+                                    setActiveConversationId(msg.conversation_id || msg.id);
+                                  }}
+                                  className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                                >
+                                  Open Thread
+                                </button>
+                                <button
+                                  onClick={() => deleteAdminMessage(msg.id)}
+                                  className="text-[10px] text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 flex items-center space-x-1 cursor-pointer"
+                                  title="Delete this sent message"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                  <span>Delete</span>
+                                </button>
+                              </div>
                             </div>
                           </div>
                         </div>
                       ))
                     )
                   )}
+                </div>
+
+                {/* Footer link to full Two-Way Messages Hub */}
+                <div className="p-2.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 text-center">
+                  <button
+                    onClick={() => {
+                      setIsNotificationsOpen(false);
+                      setActiveTab('messages');
+                    }}
+                    className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer inline-flex items-center space-x-1"
+                  >
+                    <span>Open Two-Way Messages Hub →</span>
+                  </button>
                 </div>
               </div>
             )}

@@ -233,9 +233,11 @@ CREATE POLICY "Admins manage all milestones, users manage own" ON public.milesto
   EXISTS (SELECT 1 FROM public.projects WHERE projects.id = milestones.project_id AND (projects.user_id = auth.uid() OR public.is_admin() OR auth.role() = 'anon'))
 );
 
--- 12. ADMIN MESSAGES TABLE (Unidirectional Notifications from Admin to Users)
+-- 12. ADMIN MESSAGES TABLE (Two-Way Communication and Notifications between Admins and Users)
 CREATE TABLE IF NOT EXISTS public.admin_messages (
   id TEXT PRIMARY KEY DEFAULT uuid_generate_v4()::text,
+  conversation_id TEXT,
+  parent_id TEXT,
   sender_id TEXT,
   sender_name TEXT,
   target_user_id TEXT NOT NULL DEFAULT 'all',
@@ -243,12 +245,43 @@ CREATE TABLE IF NOT EXISTS public.admin_messages (
   title TEXT NOT NULL,
   message TEXT NOT NULL,
   priority TEXT NOT NULL DEFAULT 'Normal' CHECK (priority IN ('Normal', 'Important', 'Urgent', 'Announcement')),
+  message_type TEXT DEFAULT 'personal' CHECK (message_type IN ('broadcast', 'personal', 'user_initiated', 'reply')),
   read_by TEXT[] DEFAULT '{}',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE INDEX IF NOT EXISTS idx_admin_messages_conversation ON public.admin_messages(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_admin_messages_sender ON public.admin_messages(sender_id);
+CREATE INDEX IF NOT EXISTS idx_admin_messages_target ON public.admin_messages(target_user_id);
+CREATE INDEX IF NOT EXISTS idx_admin_messages_parent ON public.admin_messages(parent_id);
+
+CREATE OR REPLACE FUNCTION public.is_recipient_admin(target_id TEXT)
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.users
+    WHERE users.id::text = target_id
+    AND users.system_role = 'Admin'
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 ALTER TABLE public.admin_messages ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can view messages addressed to them or all" ON public.admin_messages FOR SELECT USING (
-  target_user_id = 'all' OR target_user_id = auth.uid()::text OR sender_id = auth.uid()::text OR public.is_admin()
+
+CREATE POLICY "Users can view relevant messages" ON public.admin_messages FOR SELECT USING (
+  public.is_admin() OR target_user_id = 'all' OR target_user_id = auth.uid()::text OR sender_id = auth.uid()::text OR auth.role() = 'anon'
 );
-CREATE POLICY "Admins can manage messages" ON public.admin_messages FOR ALL USING (true) WITH CHECK (true);
+
+CREATE POLICY "Users can insert allowed messages" ON public.admin_messages FOR INSERT WITH CHECK (
+  public.is_admin() OR (target_user_id != 'all' AND public.is_recipient_admin(target_user_id)) OR auth.role() = 'anon'
+);
+
+CREATE POLICY "Users can update read receipts" ON public.admin_messages FOR UPDATE USING (
+  public.is_admin() OR target_user_id = 'all' OR target_user_id = auth.uid()::text OR auth.role() = 'anon'
+) WITH CHECK (
+  public.is_admin() OR target_user_id = 'all' OR target_user_id = auth.uid()::text OR auth.role() = 'anon'
+);
+
+CREATE POLICY "Admins can delete messages" ON public.admin_messages FOR DELETE USING (
+  public.is_admin() OR auth.role() = 'anon'
+);

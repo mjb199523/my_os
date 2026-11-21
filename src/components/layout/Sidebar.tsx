@@ -19,6 +19,7 @@ import {
   ChevronRight,
   Sparkles,
   LogOut,
+  MessageSquare,
 } from 'lucide-react';
 import Logo from '@/components/common/Logo';
 
@@ -36,6 +37,7 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
     followups,
     meetings,
     issues,
+    unreadMessagesCount,
     user,
     isAdmin,
     signOutUser,
@@ -60,6 +62,13 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
       label: 'Dashboard',
       icon: LayoutDashboard,
       badge: null,
+    },
+    {
+      id: 'messages',
+      label: 'Messages',
+      icon: MessageSquare,
+      badge: unreadMessagesCount > 0 ? unreadMessagesCount : null,
+      badgeColor: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300',
     },
     {
       id: 'tasks',

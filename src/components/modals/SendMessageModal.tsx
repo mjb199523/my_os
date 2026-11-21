@@ -5,13 +5,11 @@ import { useWorkOS } from '@/context/WorkOSContext';
 import {
   X,
   Send,
-  Bell,
-  Users,
-  User as UserIcon,
   AlertCircle,
   Megaphone,
   CheckCircle2,
   Shield,
+  MessageSquare,
 } from 'lucide-react';
 import { MessagePriority } from '@/types';
 
@@ -23,8 +21,12 @@ export default function SendMessageModal() {
     users,
     user: currentUser,
     isAdmin,
-    sendAdminMessage,
+    sendMessage,
+    setActiveTab,
+    setActiveConversationId,
   } = useWorkOS();
+
+  const adminUsers = users.filter((u) => u.system_role === 'Admin');
 
   const [targetUserId, setTargetUserId] = useState<'all' | string>('all');
   const [title, setTitle] = useState('');
@@ -36,16 +38,21 @@ export default function SendMessageModal() {
 
   useEffect(() => {
     if (isComposeMessageOpen) {
-      setTargetUserId(composeTargetUserId || 'all');
+      if (isAdmin) {
+        setTargetUserId(composeTargetUserId || 'all');
+      } else {
+        // Standard users can only message Admins - default to first admin
+        setTargetUserId(composeTargetUserId || (adminUsers[0]?.id || ''));
+      }
       setTitle('');
       setMessage('');
       setPriority('Normal');
       setError(null);
       setSuccessMsg(false);
     }
-  }, [isComposeMessageOpen, composeTargetUserId]);
+  }, [isComposeMessageOpen, composeTargetUserId, isAdmin, adminUsers]);
 
-  if (!isComposeMessageOpen || !isAdmin) return null;
+  if (!isComposeMessageOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,20 +60,25 @@ export default function SendMessageModal() {
     setIsSubmitting(true);
 
     try {
-      const res = await sendAdminMessage({
+      const res = await sendMessage({
         target_user_id: targetUserId,
         title: title.trim(),
         message: message.trim(),
         priority,
       });
 
-      if (res.success) {
+      if (res.success && res.message) {
         setSuccessMsg(true);
+        const convId = res.message.conversation_id;
         setTimeout(() => {
           closeComposeMessage();
-        }, 800);
+          setActiveTab('messages');
+          if (convId) {
+            setActiveConversationId(convId);
+          }
+        }, 600);
       } else {
-        setError(res.error || 'Failed to send notification.');
+        setError(res.error || 'Failed to send message.');
       }
     } catch (err: any) {
       setError(err?.message || 'An error occurred while sending the message.');
@@ -89,25 +101,29 @@ export default function SendMessageModal() {
         <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
           <div className="flex items-center space-x-2.5">
             <div className="w-9 h-9 rounded-xl bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
-              <Megaphone className="w-5 h-5" />
+              {isAdmin ? <Megaphone className="w-5 h-5" /> : <MessageSquare className="w-5 h-5" />}
             </div>
             <div>
               <div className="flex items-center space-x-2">
                 <h2 className="text-base font-bold text-slate-900 dark:text-white">
-                  Send User Notification
+                  {isAdmin ? 'Send Announcement or Direct Message' : 'Initiate Message to Administrator'}
                 </h2>
-                <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.2 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300">
-                  Admin Only
+                <span className={`text-[10px] font-extrabold uppercase px-1.5 py-0.2 rounded-full ${
+                  isAdmin ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300' : 'bg-emerald-100 text-emerald-700'
+                }`}>
+                  {isAdmin ? 'Admin Console' : 'Direct to Admin'}
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Direct unidirectional message sent to a user or broadcast to all
+                {isAdmin
+                  ? 'Send a broadcast to all users or a private direct message to an individual'
+                  : 'Start a private conversation directly with a workspace administrator'}
               </p>
             </div>
           </div>
           <button
             onClick={closeComposeMessage}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -124,7 +140,7 @@ export default function SendMessageModal() {
         {successMsg && (
           <div className="mx-6 mt-4 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 flex items-center space-x-2 text-emerald-700 dark:text-emerald-300 text-xs">
             <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-500" />
-            <span className="font-semibold">Notification dispatched successfully!</span>
+            <span className="font-semibold">Message dispatched successfully!</span>
           </div>
         )}
 
@@ -135,26 +151,48 @@ export default function SendMessageModal() {
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
               Select Recipient <span className="text-rose-500">*</span>
             </label>
-            <select
-              value={targetUserId}
-              onChange={(e) => setTargetUserId(e.target.value)}
-              className="w-full px-3 py-2 text-xs sm:text-sm rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium"
-            >
-              <option value="all">📢 Broadcast to All Portal Users</option>
-              <optgroup label="Individual Users">
-                {users.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    👤 {u.name} ({u.email}) - {u.system_role}
+            {isAdmin ? (
+              <select
+                value={targetUserId}
+                onChange={(e) => setTargetUserId(e.target.value)}
+                className="w-full px-3 py-2 text-xs sm:text-sm rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium cursor-pointer"
+              >
+                <option value="all">📢 Broadcast to All Portal Users</option>
+                <optgroup label="Individual Users">
+                  {users
+                    .filter((u) => u.id !== currentUser?.id)
+                    .map((u) => (
+                      <option key={u.id} value={u.id}>
+                        👤 {u.name} ({u.email}) - {u.system_role}
+                      </option>
+                    ))}
+                </optgroup>
+              </select>
+            ) : (
+              <select
+                value={targetUserId}
+                onChange={(e) => setTargetUserId(e.target.value)}
+                className="w-full px-3 py-2 text-xs sm:text-sm rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium cursor-pointer"
+              >
+                {adminUsers.map((admin) => (
+                  <option key={admin.id} value={admin.id}>
+                    🛡️ {admin.name} ({admin.email}) - Administrator
                   </option>
                 ))}
-              </optgroup>
-            </select>
+              </select>
+            )}
+            {!isAdmin && (
+              <p className="mt-1 text-[11px] text-slate-500 flex items-center gap-1">
+                <Shield className="w-3 h-3 text-indigo-500" />
+                <span>Standard users are strictly permitted to message Workspace Administrators only.</span>
+              </p>
+            )}
           </div>
 
           {/* Priority Level */}
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-              Notification Category / Priority
+              Priority Classification
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {priorityOptions.map((opt) => (
@@ -162,7 +200,7 @@ export default function SendMessageModal() {
                   key={opt.value}
                   type="button"
                   onClick={() => setPriority(opt.value)}
-                  className={`py-1.5 px-2.5 rounded-xl border text-xs font-semibold transition-all text-center ${
+                  className={`py-1.5 px-2.5 rounded-xl border text-xs font-semibold transition-all text-center cursor-pointer ${
                     priority === opt.value
                       ? `${opt.color} ring-2 ring-indigo-500/20 shadow-2xs`
                       : 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 text-slate-600 dark:text-slate-400 hover:border-slate-300'
@@ -177,14 +215,14 @@ export default function SendMessageModal() {
           {/* Title */}
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-              Message Subject / Title <span className="text-rose-500">*</span>
+              Subject / Topic <span className="text-rose-500">*</span>
             </label>
             <input
               type="text"
               required
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Sprint Planning Schedule Update"
+              placeholder={isAdmin ? 'e.g. Schedule Update or Quarterly Goals' : 'e.g. Question regarding sprint deliverables'}
               className="w-full px-3.5 py-2 text-xs sm:text-sm rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium"
             />
           </div>
@@ -199,7 +237,7 @@ export default function SendMessageModal() {
               rows={4}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Type your message to the recipient. This will immediately show up in their notification centre bell icon..."
+              placeholder="Type your message here. The recipient will be notified immediately..."
               className="w-full p-3 text-xs sm:text-sm rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium resize-none"
             />
           </div>
@@ -209,7 +247,7 @@ export default function SendMessageModal() {
             <button
               type="button"
               onClick={closeComposeMessage}
-              className="px-4 py-2 text-xs font-semibold rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              className="px-4 py-2 text-xs font-semibold rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
             >
               Cancel
             </button>
@@ -219,7 +257,7 @@ export default function SendMessageModal() {
               className="px-5 py-2 text-xs font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition-all disabled:opacity-70 flex items-center space-x-1.5 cursor-pointer"
             >
               <Send className="w-3.5 h-3.5" />
-              <span>{isSubmitting ? 'Sending...' : 'Send Notification'}</span>
+              <span>{isSubmitting ? 'Sending...' : 'Send Message'}</span>
             </button>
           </div>
         </form>
