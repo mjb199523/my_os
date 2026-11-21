@@ -131,3 +131,4 @@ USING (
   public.is_admin() 
   OR auth.role() = 'anon'
 );
+

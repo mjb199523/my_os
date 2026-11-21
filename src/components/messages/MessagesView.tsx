@@ -39,12 +39,16 @@ export default function MessagesView() {
   } = useWorkOS();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterTab, setFilterTab] = useState<'all' | 'unread' | 'broadcast' | 'direct'>('all');
+  const [filterTab, setFilterTab] = useState<'all' | 'personal' | 'broadcast' | 'unread'>('all');
   const [replyText, setReplyText] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [replyError, setReplyError] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const personalCount = useMemo(() => conversations.filter((c) => !c.is_broadcast).length, [conversations]);
+  const broadcastCount = useMemo(() => conversations.filter((c) => c.is_broadcast).length, [conversations]);
+  const unreadCount = useMemo(() => conversations.filter((c) => c.unread_count > 0).length, [conversations]);
 
   // Auto-select first conversation if none selected on desktop
   useEffect(() => {
@@ -75,8 +79,8 @@ export default function MessagesView() {
     return conversations.filter((conv) => {
       // Tab filter
       if (filterTab === 'unread' && conv.unread_count === 0) return false;
-      if (filterTab === 'broadcast' && conv.message_type !== 'broadcast' && !conv.is_broadcast) return false;
-      if (filterTab === 'direct' && (conv.message_type === 'broadcast' || conv.is_broadcast)) return false;
+      if (filterTab === 'broadcast' && !conv.is_broadcast) return false;
+      if (filterTab === 'personal' && conv.is_broadcast) return false;
 
       // Search query filter
       if (searchQuery.trim()) {
@@ -228,14 +232,14 @@ export default function MessagesView() {
           </button>
           <button
             type="button"
-            onClick={() => setFilterTab('unread')}
+            onClick={() => setFilterTab('personal')}
             className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
-              filterTab === 'unread'
+              filterTab === 'personal'
                 ? 'bg-indigo-600 text-white'
                 : 'hover:bg-slate-200/60 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400'
             }`}
           >
-            Unread
+            Personal ({personalCount})
           </button>
           <button
             type="button"
@@ -246,18 +250,18 @@ export default function MessagesView() {
                 : 'hover:bg-slate-200/60 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400'
             }`}
           >
-            Broadcasts
+            Broadcasts ({broadcastCount})
           </button>
           <button
             type="button"
-            onClick={() => setFilterTab('direct')}
+            onClick={() => setFilterTab('unread')}
             className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
-              filterTab === 'direct'
+              filterTab === 'unread'
                 ? 'bg-indigo-600 text-white'
                 : 'hover:bg-slate-200/60 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400'
             }`}
           >
-            Personal
+            Unread {unreadCount > 0 && `(${unreadCount})`}
           </button>
         </div>
 
@@ -329,7 +333,7 @@ export default function MessagesView() {
                         </span>
                       ) : (
                         <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-blue-100 text-blue-700">
-                          🔒 Direct
+                          🔒 Personal
                         </span>
                       )}
 

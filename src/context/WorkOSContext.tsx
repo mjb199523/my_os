@@ -1930,11 +1930,23 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
     const convMap = new Map<string, AdminMessage[]>();
 
     for (const msg of visibleMessages) {
-      const convKey = msg.conversation_id;
+      let convKey = msg.conversation_id;
+
+      // Unify 1-on-1 personal messages between the same two users into a single thread
+      const isBroadcast = msg.target_user_id === 'all' || msg.message_type === 'broadcast';
+      const isBroadcastReply = msg.parent_id != null && visibleMessages.some((m) => m.id === msg.parent_id && (m.target_user_id === 'all' || m.message_type === 'broadcast'));
+
+      if (!isBroadcast && !isBroadcastReply) {
+        convKey = `conv_direct_${[msg.sender_id, msg.target_user_id].sort().join('_')}`;
+      }
+
       if (!convMap.has(convKey)) {
         convMap.set(convKey, []);
       }
-      convMap.get(convKey)!.push(msg);
+      convMap.get(convKey)!.push({
+        ...msg,
+        conversation_id: convKey,
+      });
     }
 
     // Attach root broadcast if conversation is a private reply thread to a broadcast
@@ -1994,11 +2006,13 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
         return !m.read_by.includes(user.id);
       }).length;
 
+      const isBroadcast = rootMessage.target_user_id === 'all' || rootMessage.message_type === 'broadcast';
+
       result.push({
         id: convId,
         root_message_id: rootMessage.id,
         title: rootMessage.title || 'Conversation',
-        message_type: rootMessage.message_type,
+        message_type: isBroadcast ? 'broadcast' : 'personal',
         priority: rootMessage.priority || 'Normal',
         created_at: rootMessage.created_at,
         updated_at: lastMessage.created_at,
@@ -2007,7 +2021,7 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
         participant_ids: Array.from(new Set(msgs.flatMap((m) => [m.sender_id, m.target_user_id]))),
         other_participant: otherUserObj,
         other_participant_name: otherUserName || 'Administrator',
-        is_broadcast: rootMessage.target_user_id === 'all' && msgs.length === 1,
+        is_broadcast: isBroadcast,
         unread_count: unreadCount,
       });
     });
@@ -2201,11 +2215,14 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
         } else {
           convId = `conv_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
         }
+      } else if (finalTargetId !== 'all') {
+        // Direct 1-on-1 personal message between this user and finalTargetId
+        convId = `conv_direct_${[user.id, finalTargetId].sort().join('_')}`;
+        msgType = 'personal';
       } else {
-        convId = `conv_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-        if (!isAdmin) {
-          msgType = 'user_initiated';
-        }
+        // Broadcast
+        convId = `conv_broadcast_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+        msgType = 'broadcast';
       }
     }
 
