@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useWorkOS } from '@/context/WorkOSContext';
 import {
   X,
@@ -26,7 +26,7 @@ export default function SendMessageModal() {
     setActiveConversationId,
   } = useWorkOS();
 
-  const adminUsers = users.filter((u) => u.system_role === 'Admin');
+  const adminUsers = useMemo(() => users.filter((u) => u.system_role === 'Admin'), [users]);
 
   const [targetUserId, setTargetUserId] = useState<'all' | string>('all');
   const [title, setTitle] = useState('');
@@ -41,8 +41,8 @@ export default function SendMessageModal() {
       if (isAdmin) {
         setTargetUserId(composeTargetUserId || 'all');
       } else {
-        // Standard users can only message Admins - default to first admin
-        setTargetUserId(composeTargetUserId || (adminUsers[0]?.id || ''));
+        const firstAdminId = users.find((u) => u.system_role === 'Admin')?.id || '';
+        setTargetUserId(composeTargetUserId || firstAdminId);
       }
       setTitle('');
       setMessage('');
@@ -50,7 +50,7 @@ export default function SendMessageModal() {
       setError(null);
       setSuccessMsg(false);
     }
-  }, [isComposeMessageOpen, composeTargetUserId, isAdmin, adminUsers]);
+  }, [isComposeMessageOpen, composeTargetUserId, isAdmin]);
 
   if (!isComposeMessageOpen) return null;
 
