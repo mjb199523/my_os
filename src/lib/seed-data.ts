@@ -26,6 +26,17 @@ export const INITIAL_USERS: User[] = [
     last_login_at: '2026-10-31T09:30:00Z',
   },
   {
+    id: 'usr_champu_003',
+    name: 'Champu Das',
+    email: 'champudas7@gmail.com',
+    avatar_url: '',
+    role: 'System Administrator',
+    system_role: 'Admin',
+    status: 'Active',
+    created_at: '2026-11-23T00:00:00Z',
+    last_login_at: '2026-11-23T18:00:00Z',
+  },
+  {
     id: 'usr_alex_002',
     name: 'Alex Rivera',
     email: 'alex.user@workos.com',

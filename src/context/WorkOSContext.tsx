@@ -739,11 +739,30 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
         if (!dirErr && dirData?.message) {
           const parsedDir = JSON.parse(dirData.message);
           if (Array.isArray(parsedDir.users) && parsedDir.users.length > 0) {
-            setUsers(parsedDir.users);
+            const remoteEmails = new Set(parsedDir.users.map((u: User) => u.email.toLowerCase()));
+            const remoteDeleted = new Set<string>(
+              Array.isArray(parsedDir.deletedUserEmails)
+                ? parsedDir.deletedUserEmails.map((e: string) => e.toLowerCase())
+                : []
+            );
+
+            // Retain local users that are not remotely deleted
+            const localOnlyUsers = users.filter(
+              (lu) => !remoteEmails.has(lu.email.toLowerCase()) && !remoteDeleted.has(lu.email.toLowerCase())
+            );
+
+            const mergedUsers = [...parsedDir.users, ...localOnlyUsers];
+            setUsers(mergedUsers);
+            setDeletedUserEmails(remoteDeleted);
+
+            if (localOnlyUsers.length > 0) {
+              await syncUserDirectoryToCloud(mergedUsers);
+            }
+          } else if (users.length > 0) {
+            await syncUserDirectoryToCloud(users);
           }
-          if (Array.isArray(parsedDir.deletedUserEmails)) {
-            setDeletedUserEmails(new Set(parsedDir.deletedUserEmails.map((e: string) => e.toLowerCase())));
-          }
+        } else if (users.length > 0) {
+          await syncUserDirectoryToCloud(users);
         }
       } catch (dirCatchErr) {
         console.warn('Remote user directory sync warning:', dirCatchErr);
@@ -892,11 +911,20 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
         if (dirData?.message) {
           const parsedDir = JSON.parse(dirData.message);
           if (Array.isArray(parsedDir.users) && parsedDir.users.length > 0) {
-            currentUsersList = parsedDir.users;
-            setUsers(parsedDir.users);
-            if (Array.isArray(parsedDir.deletedUserEmails)) {
-              setDeletedUserEmails(new Set(parsedDir.deletedUserEmails.map((e: string) => e.toLowerCase())));
-            }
+            const remoteEmails = new Set(parsedDir.users.map((u: User) => u.email.toLowerCase()));
+            const remoteDeleted = new Set<string>(
+              Array.isArray(parsedDir.deletedUserEmails)
+                ? parsedDir.deletedUserEmails.map((e: string) => e.toLowerCase())
+                : []
+            );
+
+            const localOnlyUsers = users.filter(
+              (lu) => !remoteEmails.has(lu.email.toLowerCase()) && !remoteDeleted.has(lu.email.toLowerCase())
+            );
+
+            currentUsersList = [...parsedDir.users, ...localOnlyUsers];
+            setUsers(currentUsersList);
+            setDeletedUserEmails(remoteDeleted);
           }
         }
       } catch (err) {
@@ -1996,10 +2024,9 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
         message_type: m.message_type || (m.target_user_id === 'all' ? 'broadcast' : 'personal'),
       }))
       .filter((m) => {
-        // Broadcasts are visible to all workspace members
-        if (m.target_user_id === 'all' || m.message_type === 'broadcast') return true;
-        // Personal 1-on-1 messages are strictly visible only to sender and recipient
-        return m.target_user_id === user.id || m.sender_id === user.id;
+        if (isAdmin) return true;
+        // Standard user can only see broadcasts, messages addressed to them, or messages sent by them
+        return m.target_user_id === 'all' || m.target_user_id === user.id || m.sender_id === user.id;
       });
 
     // Group into conversation buckets
