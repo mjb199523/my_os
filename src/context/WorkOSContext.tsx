@@ -258,6 +258,7 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
   // Data state: Master entities across all users
   const [users, setUsers] = useState<User[]>(INITIAL_USERS);
   const [user, setUser] = useState<User>(CURRENT_USER);
+  const [deletedUserEmails, setDeletedUserEmails] = useState<Set<string>>(() => new Set());
 
   const isAdmin = useMemo(() => {
     return user?.system_role === 'Admin';
@@ -385,9 +386,6 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
       }
 
       const sessionAuth = localStorage.getItem('my_work_os_authenticated');
-      if (sessionAuth === 'true') {
-        setIsAuthenticated(true);
-      }
 
       const client = getSupabase();
       if (client) {
@@ -398,37 +396,45 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
       const savedData = localStorage.getItem(STORAGE_KEY);
       if (savedData) {
         const parsed = JSON.parse(savedData);
-        let loadedUsers: User[] = INITIAL_USERS;
+
+        const storedDeletedEmails = new Set<string>(
+          Array.isArray(parsed.deletedUserEmails)
+            ? parsed.deletedUserEmails.map((e: string) => e.toLowerCase())
+            : []
+        );
+        setDeletedUserEmails(storedDeletedEmails);
+
+        let loadedUsers: User[] = INITIAL_USERS.filter((iu) => !storedDeletedEmails.has(iu.email.toLowerCase()));
         if (Array.isArray(parsed.users) && parsed.users.length > 0) {
           const existingEmails = new Set(parsed.users.map((u: User) => u.email.toLowerCase()));
           const merged = [...parsed.users];
           for (const iu of INITIAL_USERS) {
-            if (!existingEmails.has(iu.email.toLowerCase())) {
+            if (!existingEmails.has(iu.email.toLowerCase()) && !storedDeletedEmails.has(iu.email.toLowerCase())) {
               merged.push(iu);
             }
           }
           loadedUsers = merged;
           setUsers(loadedUsers);
         } else {
-          setUsers(INITIAL_USERS);
+          setUsers(loadedUsers);
         }
 
         const activeUserId = localStorage.getItem('my_work_os_active_user_id');
-        if (activeUserId) {
+        if (sessionAuth === 'true' && activeUserId) {
           const activeUser = loadedUsers.find((u: User) => u.id === activeUserId);
-          if (activeUser) {
+          if (activeUser && activeUser.status !== 'Inactive') {
             setUser(activeUser);
-          } else if (parsed.user) {
-            setUser({
-              ...parsed.user,
-              system_role: parsed.user.system_role || 'Admin',
-            });
+            setIsAuthenticated(true);
+          } else {
+            // User was deleted or deactivated: revoke session immediately
+            setIsAuthenticated(false);
+            localStorage.removeItem('my_work_os_authenticated');
+            localStorage.removeItem('my_work_os_active_user_id');
           }
-        } else if (parsed.user) {
-          setUser({
-            ...parsed.user,
-            system_role: parsed.user.system_role || 'Admin',
-          });
+        } else {
+          setIsAuthenticated(false);
+          localStorage.removeItem('my_work_os_authenticated');
+          localStorage.removeItem('my_work_os_active_user_id');
         }
 
         // Helper to load or merge seed data so new demo users always have seed items
@@ -557,6 +563,7 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
       const payload = {
         user,
         users,
+        deletedUserEmails: Array.from(deletedUserEmails),
         adminMessages,
         projects: allProjects,
         tasks: allTasks,
@@ -577,6 +584,7 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
     isInitialized,
     user,
     users,
+    deletedUserEmails,
     adminMessages,
     allProjects,
     allTasks,
@@ -720,36 +728,40 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
         setAllNotes(remoteNotes);
       }
 
-      // 10. Fetch remote users
-      const { data: remoteUsers, error: usrErr } = await client.from('users').select('*');
-      if (!usrErr && remoteUsers && remoteUsers.length > 0) {
-        setUsers((prev) => {
-          const merged = [...prev];
-          for (const ru of remoteUsers) {
-            const idx = merged.findIndex((u) => u.id === ru.id || u.email.toLowerCase() === ru.email.toLowerCase());
-            if (idx >= 0) {
-              merged[idx] = { ...merged[idx], ...ru };
-            } else {
-              merged.push({
-                ...ru,
-                system_role: ru.system_role || 'User',
-                status: ru.status || 'Active',
-              });
-            }
+      // 10. Fetch synchronized remote user directory across devices
+      try {
+        const { data: dirData, error: dirErr } = await client
+          .from('admin_messages')
+          .select('*')
+          .eq('id', 'sys_nexus_user_directory')
+          .maybeSingle();
+
+        if (!dirErr && dirData?.message) {
+          const parsedDir = JSON.parse(dirData.message);
+          if (Array.isArray(parsedDir.users) && parsedDir.users.length > 0) {
+            setUsers(parsedDir.users);
           }
-          return merged;
-        });
+          if (Array.isArray(parsedDir.deletedUserEmails)) {
+            setDeletedUserEmails(new Set(parsedDir.deletedUserEmails.map((e: string) => e.toLowerCase())));
+          }
+        }
+      } catch (dirCatchErr) {
+        console.warn('Remote user directory sync warning:', dirCatchErr);
       }
 
-      // 11. Fetch remote admin messages (unidirectional notifications)
+      // 11. Fetch remote admin messages (unidirectional notifications and two-way chats)
       const { data: remoteMsgs, error: msgErr } = await client
         .from('admin_messages')
         .select('*')
         .order('created_at', { ascending: false });
       if (!msgErr && remoteMsgs && remoteMsgs.length > 0) {
+        // Exclude system user directory sync record from UI notifications and conversations
+        const actualChatMsgs = remoteMsgs.filter(
+          (m) => m.id !== 'sys_nexus_user_directory' && m.sender_id !== 'system_auth'
+        );
         setAdminMessages((prev) => {
-          const merged = [...prev];
-          for (const rm of remoteMsgs) {
+          const merged = [...prev.filter((m) => m.id !== 'sys_nexus_user_directory' && m.sender_id !== 'system_auth')];
+          for (const rm of actualChatMsgs) {
             const idx = merged.findIndex((m) => m.id === rm.id);
             if (idx >= 0) {
               merged[idx] = { ...merged[idx], ...rm };
@@ -805,24 +817,59 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
     return res;
   };
 
+  // Cloud synchronizer for the shared portal user directory across devices (Desktop & Mobile)
+  const syncUserDirectoryToCloud = async (
+    currentUsersList: User[],
+    deletedEmailToAdd?: string,
+    emailToUndelete?: string
+  ) => {
+    const client = getSupabase();
+    if (!client) return;
+
+    try {
+      let updatedDeleted = Array.from(deletedUserEmails);
+      if (deletedEmailToAdd && !updatedDeleted.includes(deletedEmailToAdd)) {
+        updatedDeleted.push(deletedEmailToAdd);
+      }
+      if (emailToUndelete) {
+        updatedDeleted = updatedDeleted.filter((e) => e !== emailToUndelete);
+      }
+
+      await client.from('admin_messages').upsert({
+        id: 'sys_nexus_user_directory',
+        sender_id: 'system_auth',
+        sender_name: 'Nexus System',
+        target_user_id: 'all',
+        target_user_name: 'All Users',
+        title: 'Nexus OS User Directory',
+        message: JSON.stringify({
+          users: currentUsersList,
+          deletedUserEmails: updatedDeleted,
+          updated_at: new Date().toISOString(),
+        }),
+        priority: 'Normal',
+        read_by: [],
+      });
+    } catch (err) {
+      console.warn('Supabase remote user directory sync warning:', err);
+    }
+  };
+
   const loginUser = (email: string) => {
     const cleanEmail = email.trim().toLowerCase();
     const matchedUser = users.find((u) => u.email.trim().toLowerCase() === cleanEmail);
     if (matchedUser) {
+      if (matchedUser.status === 'Inactive') {
+        signOutUser();
+        return;
+      }
       setUser(matchedUser);
+      setIsAuthenticated(true);
+      setAdminUserFilter('all');
+      setActiveTab('dashboard');
+      localStorage.setItem('my_work_os_authenticated', 'true');
       localStorage.setItem('my_work_os_active_user_id', matchedUser.id);
-    } else {
-      setUser((prev) => ({
-        ...prev,
-        email: cleanEmail,
-        name: prev.name || 'Manashjyoti Barman',
-        system_role: 'Admin',
-      }));
     }
-    setIsAuthenticated(true);
-    setAdminUserFilter('all');
-    setActiveTab('dashboard');
-    localStorage.setItem('my_work_os_authenticated', 'true');
   };
 
   const loginWithCredentials = async (
@@ -830,46 +877,48 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
     pass: string
   ): Promise<{ success: boolean; error?: string; user?: User }> => {
     const cleanEmail = email.trim().toLowerCase();
-    const matchedUser = users.find((u) => u.email.trim().toLowerCase() === cleanEmail);
+
+    // Query freshest remote user directory from Supabase if connected
+    let currentUsersList = users;
+    const client = getSupabase();
+    if (client) {
+      try {
+        const { data: dirData } = await client
+          .from('admin_messages')
+          .select('*')
+          .eq('id', 'sys_nexus_user_directory')
+          .maybeSingle();
+
+        if (dirData?.message) {
+          const parsedDir = JSON.parse(dirData.message);
+          if (Array.isArray(parsedDir.users) && parsedDir.users.length > 0) {
+            currentUsersList = parsedDir.users;
+            setUsers(parsedDir.users);
+            if (Array.isArray(parsedDir.deletedUserEmails)) {
+              setDeletedUserEmails(new Set(parsedDir.deletedUserEmails.map((e: string) => e.toLowerCase())));
+            }
+          }
+        }
+      } catch (err) {
+        // Fallback to local users
+      }
+    }
+
+    const matchedUser = currentUsersList.find((u) => u.email.trim().toLowerCase() === cleanEmail);
 
     if (!matchedUser) {
-      // If not in local users, attempt Supabase if client is configured
-      const client = getSupabase();
-      if (client) {
-        const res = await client.auth.signInWithPassword({ email: cleanEmail, password: pass });
-        if (!res.error && res.data.user) {
-          const cloudUser: User = {
-            id: res.data.user.id,
-            name: res.data.user.user_metadata?.full_name || cleanEmail.split('@')[0],
-            email: cleanEmail,
-            role: res.data.user.user_metadata?.role || 'Team Member',
-            system_role: (res.data.user.user_metadata?.system_role as 'Admin' | 'User') || 'User',
-            status: 'Active',
-            created_at: res.data.user.created_at,
-            last_login_at: new Date().toISOString(),
-          };
-          setUser(cloudUser);
-          setUsers((prev) => (prev.some((u) => u.id === cloudUser.id) ? prev : [...prev, cloudUser]));
-          setIsAuthenticated(true);
-          setAdminUserFilter('all');
-          setActiveTab('dashboard');
-          localStorage.setItem('my_work_os_authenticated', 'true');
-          localStorage.setItem('my_work_os_active_user_id', cloudUser.id);
-          return { success: true, user: cloudUser };
-        }
-      }
-      return { success: false, error: 'Invalid email or password. Please verify your credentials.' };
+      return { success: false, error: 'User account not found. Please verify your email or contact an Administrator.' };
     }
 
     if (matchedUser.status === 'Inactive') {
       return {
         success: false,
-        error: 'This account has been deactivated by an Administrator. Please contact support.',
+        error: 'This account has been deactivated by an Administrator. Access is blocked.',
       };
     }
 
     if (matchedUser.password && matchedUser.password !== pass) {
-      return { success: false, error: 'Incorrect password. Please try again.' };
+      return { success: false, error: 'Incorrect password. Please verify and try again.' };
     }
 
     const updatedUser: User = {
@@ -878,7 +927,8 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
     };
 
     setUser(updatedUser);
-    setUsers((prev) => prev.map((u) => (u.id === updatedUser.id ? updatedUser : u)));
+    const updatedUsersList = currentUsersList.map((u) => (u.id === updatedUser.id ? updatedUser : u));
+    setUsers(updatedUsersList);
     setIsAuthenticated(true);
     setAdminUserFilter('all');
     setActiveTab('dashboard');
@@ -909,6 +959,13 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
       return { success: false, error: 'A user with this email address already exists.' };
     }
 
+    // Remove from deletedUserEmails if being re-added
+    setDeletedUserEmails((prev) => {
+      const next = new Set(prev);
+      next.delete(cleanEmail);
+      return next;
+    });
+
     const newUser: User = {
       id: `usr_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       name: newUserData.name.trim(),
@@ -922,25 +979,11 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
       last_login_at: undefined,
     };
 
-    setUsers((prev) => [newUser, ...prev]);
+    const nextUsers = [newUser, ...users];
+    setUsers(nextUsers);
 
-    // If Supabase is connected, persist to Supabase users table
-    const client = getSupabase();
-    if (client) {
-      try {
-        await client.from('users').insert({
-          id: newUser.id,
-          name: newUser.name,
-          email: newUser.email,
-          role: newUser.role,
-          system_role: newUser.system_role,
-          status: newUser.status,
-          created_at: newUser.created_at,
-        });
-      } catch (err) {
-        console.warn('Supabase remote user insert skipped:', err);
-      }
-    }
+    // Sync to Supabase directory
+    await syncUserDirectoryToCloud(nextUsers, undefined, cleanEmail);
 
     return { success: true };
   };
@@ -962,35 +1005,22 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    setUsers((prev) =>
-      prev.map((u) => {
-        if (u.id === id) {
-          return { ...u, ...updates };
-        }
-        return u;
-      })
-    );
+    const nextUsers = users.map((u) => {
+      if (u.id === id) {
+        return { ...u, ...updates };
+      }
+      return u;
+    });
+    setUsers(nextUsers);
 
     if (id === user.id) {
       setUser((prev) => ({ ...prev, ...updates }));
-    }
-
-    const client = getSupabase();
-    if (client) {
-      try {
-        await client
-          .from('users')
-          .update({
-            ...(updates.name && { name: updates.name }),
-            ...(updates.role && { role: updates.role }),
-            ...(updates.system_role && { system_role: updates.system_role }),
-            ...(updates.status && { status: updates.status }),
-          })
-          .eq('id', id);
-      } catch (err) {
-        console.warn('Supabase remote user update skipped:', err);
+      if (updates.status === 'Inactive') {
+        signOutUser();
       }
     }
+
+    await syncUserDirectoryToCloud(nextUsers);
 
     return { success: true };
   };
@@ -1012,16 +1042,19 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    setUsers((prev) => prev.filter((u) => u.id !== id));
-
-    const client = getSupabase();
-    if (client) {
-      try {
-        await client.from('users').delete().eq('id', id);
-      } catch (err) {
-        console.warn('Supabase remote user delete skipped:', err);
-      }
+    const emailToDelete = targetUser?.email ? targetUser.email.trim().toLowerCase() : '';
+    if (emailToDelete) {
+      setDeletedUserEmails((prev) => {
+        const next = new Set(prev);
+        next.add(emailToDelete);
+        return next;
+      });
     }
+
+    const nextUsers = users.filter((u) => u.id !== id);
+    setUsers(nextUsers);
+
+    await syncUserDirectoryToCloud(nextUsers, emailToDelete);
 
     return { success: true };
   };
@@ -1036,6 +1069,48 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('my_work_os_authenticated');
     localStorage.removeItem('my_work_os_active_user_id');
   };
+
+  // Real-time security guard: if current logged-in user is deactivated or deleted by an admin on ANY device, terminate session immediately
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id) return;
+
+    const currentRecord = users.find(
+      (u) => u.id === user.id || u.email.toLowerCase() === user.email.toLowerCase()
+    );
+
+    if (!currentRecord) {
+      console.warn('Account removed by Administrator. Signing out...');
+      signOutUser();
+    } else if (currentRecord.status === 'Inactive') {
+      console.warn('Account deactivated by Administrator. Signing out...');
+      signOutUser();
+    } else if (
+      currentRecord.system_role !== user.system_role ||
+      currentRecord.role !== user.role ||
+      currentRecord.name !== user.name
+    ) {
+      setUser((prev) => ({ ...prev, ...currentRecord }));
+    }
+  }, [isAuthenticated, user?.id, user?.email, users]);
+
+  // Periodic background check & window focus sync to keep mobile and desktop in sync
+  useEffect(() => {
+    if (!isSupabaseConnected) return;
+
+    const interval = setInterval(() => {
+      syncWithSupabase();
+    }, 12000);
+
+    const handleFocus = () => {
+      syncWithSupabase();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [isSupabaseConnected, syncWithSupabase]);
 
   // DYNAMIC TASK ACTIONS
   const addTask = async (newTask: Partial<Task>) => {
@@ -1921,9 +1996,10 @@ export function WorkOSProvider({ children }: { children: ReactNode }) {
         message_type: m.message_type || (m.target_user_id === 'all' ? 'broadcast' : 'personal'),
       }))
       .filter((m) => {
-        if (isAdmin) return true;
-        // Standard user can only see broadcasts, messages addressed to them, or messages sent by them
-        return m.target_user_id === 'all' || m.target_user_id === user.id || m.sender_id === user.id;
+        // Broadcasts are visible to all workspace members
+        if (m.target_user_id === 'all' || m.message_type === 'broadcast') return true;
+        // Personal 1-on-1 messages are strictly visible only to sender and recipient
+        return m.target_user_id === user.id || m.sender_id === user.id;
       });
 
     // Group into conversation buckets

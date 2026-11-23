@@ -23,6 +23,7 @@ import {
   Users,
   ChevronDown,
   Trash2,
+  LogOut,
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -50,6 +51,7 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
     setActiveConversationId,
     isSupabaseConnected,
     setIsAuthModalOpen,
+    signOutUser,
   } = useWorkOS();
 
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -574,6 +576,16 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
               </div>
             )}
           </div>
+
+          {/* Mobile Quick Sign Out Button */}
+          <button
+            onClick={() => signOutUser()}
+            className="md:hidden p-2 rounded-lg text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+            title="Sign Out of Nexus OS"
+            aria-label="Sign Out"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </header>

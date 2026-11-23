@@ -160,7 +160,7 @@ export default function SendMessageModal() {
                 <option value="all">📢 Broadcast to All Portal Users</option>
                 <optgroup label="Individual Users">
                   {users
-                    .filter((u) => u.id !== currentUser?.id)
+                    .filter((u) => u.id !== currentUser?.id && u.status !== 'Inactive')
                     .map((u) => (
                       <option key={u.id} value={u.id}>
                         👤 {u.name} ({u.email}) - {u.system_role}

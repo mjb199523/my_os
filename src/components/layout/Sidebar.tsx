@@ -20,6 +20,7 @@ import {
   Sparkles,
   LogOut,
   MessageSquare,
+  X,
 } from 'lucide-react';
 import Logo from '@/components/common/Logo';
 
@@ -166,12 +167,12 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
   return (
     <aside
       className={`
-        fixed inset-y-0 left-0 z-40 w-64 flex flex-col bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transition-transform duration-200 ease-in-out
-        md:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+        fixed inset-y-0 left-0 z-50 w-72 sm:w-80 md:w-64 flex flex-col bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transition-transform duration-200 ease-in-out
+        md:translate-x-0 ${isOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}
       `}
     >
       {/* Brand & Logo */}
-      <div className="h-16 px-5 flex items-center justify-between border-b border-slate-200 dark:border-slate-800">
+      <div className="h-16 px-5 flex items-center justify-between border-b border-slate-200 dark:border-slate-800 shrink-0">
         <div className="flex items-center space-x-3 cursor-pointer" onClick={() => handleNavClick('dashboard')}>
           <Logo size={36} />
           <div>
@@ -188,6 +189,17 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
             </span>
           </div>
         </div>
+
+        {/* Mobile Close Button */}
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="md:hidden p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            aria-label="Close navigation"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
       </div>
 
       {/* Navigation list */}
@@ -203,7 +215,7 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
               key={item.id}
               onClick={() => handleNavClick(item.id)}
               className={`
-                w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150
+                w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer
                 ${
                   isActive
                     ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 font-semibold'
@@ -234,11 +246,11 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
       </div>
 
       {/* User profile & Command footer */}
-      <div className="p-3 border-t border-slate-200 dark:border-slate-800">
-        <div className="px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800 flex items-center justify-between gap-2">
+      <div className="p-3.5 pb-6 md:pb-3.5 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0">
+        <div className="px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-2">
           <div className="min-w-0 flex-1">
             <div className="flex items-center space-x-1.5">
-              <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">
+              <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
                 {user.name}
               </p>
               {user.system_role === 'Admin' ? (
@@ -252,17 +264,32 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
               )}
             </div>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
-              {user.role || 'Product Delivery Manager'}
+              {user.role || (user.system_role === 'Admin' ? 'System Administrator' : 'Product Contributor')}
             </p>
           </div>
           <button
-            onClick={() => signOutUser()}
+            onClick={() => {
+              signOutUser();
+              if (onClose) onClose();
+            }}
             title="Sign out"
-            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 transition-colors cursor-pointer"
+            className="p-2 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
           >
             <LogOut className="w-4 h-4" />
           </button>
         </div>
+
+        {/* Dedicated Full-Width Mobile Logout Button */}
+        <button
+          onClick={() => {
+            signOutUser();
+            if (onClose) onClose();
+          }}
+          className="md:hidden w-full mt-2.5 py-2.5 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-200/80 dark:border-rose-900/60 font-semibold text-xs flex items-center justify-center space-x-2 transition-all cursor-pointer shadow-2xs"
+        >
+          <LogOut className="w-4 h-4" />
+          <span>Sign Out of Nexus OS</span>
+        </button>
       </div>
     </aside>
   );

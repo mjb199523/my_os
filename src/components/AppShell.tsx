@@ -42,7 +42,7 @@ function AppContent() {
   }, [isAuthenticated, isAdmin, activeTab, setActiveTab]);
 
   if (!isAuthenticated) {
-    return <LoginPage onLoginSuccess={loginUser} />;
+    return <LoginPage />;
   }
 
   const renderActiveView = () => {
@@ -92,7 +92,7 @@ function AppContent() {
       {isSidebarOpen && (
         <div
           onClick={() => setIsSidebarOpen(false)}
-          className="fixed inset-0 bg-slate-900/50 z-30 md:hidden backdrop-blur-2xs"
+          className="fixed inset-0 bg-slate-900/60 z-40 md:hidden backdrop-blur-2xs"
         />
       )}
 
@@ -102,7 +102,7 @@ function AppContent() {
         <Header onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)} />
 
         {/* Viewport Content */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-20 md:pb-8">
+        <main className={`flex-1 ${activeTab === 'messages' ? 'p-2 sm:p-4 pb-20 md:pb-4 overflow-hidden' : 'p-4 sm:p-6 lg:p-8 pb-20 md:pb-8'}`}>
           {renderActiveView()}
         </main>
       </div>

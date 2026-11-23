@@ -205,7 +205,7 @@ export default function MessagesView() {
   };
 
   return (
-    <div className="h-[calc(100vh-5.5rem)] flex flex-col md:flex-row bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+    <div className="h-[calc(100dvh-7.5rem)] md:h-[calc(100dvh-7.5rem)] flex flex-col md:flex-row bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
       {/* LEFT COLUMN: Conversation List */}
       <div
         className={`w-full md:w-80 lg:w-96 border-r border-slate-200 dark:border-slate-800 flex flex-col h-full bg-slate-50/50 dark:bg-slate-900/60 ${
@@ -458,7 +458,7 @@ export default function MessagesView() {
             {/* Message Thread Feed */}
             <div
               ref={threadContainerRef}
-              className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 overscroll-contain select-text"
+              className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 overscroll-contain select-text [scrollbar-gutter:stable] [overflow-anchor:none]"
             >
               {activeConversation.messages.map((msg: AdminMessage, idx: number) => {
                 const isMe = msg.sender_id === user?.id;
